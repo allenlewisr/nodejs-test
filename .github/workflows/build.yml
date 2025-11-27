@@ -33,6 +33,10 @@ jobs:
         JF_URL: ${{ vars.ARTIFACTORY_URL }}
       with:
         oidc-provider-name: github
+    
+    - name: Test connection
+      run: |
+        jf rt ping
 
     - name: Setup build name and JFrog repository name
       run: |
