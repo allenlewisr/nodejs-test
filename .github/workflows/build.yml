@@ -95,7 +95,8 @@ jobs:
       run: |
         PACKAGE_NAME=$(node -p "require('./package.json').name")
         PACKAGE_VERSION=$(node -p "require('./package.json').version")
-        TARBALL_NAME="${PACKAGE_NAME}-${PACKAGE_VERSION}.tgz"
+        SHORT_SHA="${GITHUB_SHA:0:8}"
+        TARBALL_NAME="${PACKAGE_NAME}-${PACKAGE_VERSION}-${SHORT_SHA}.tgz"
         echo "TARBALL_PATH=${TARBALL_NAME}" >> $GITHUB_ENV
         echo "Package tarball: ${TARBALL_NAME}"
 
@@ -174,7 +175,8 @@ jobs:
         echo "Found SARIF file: $SARIF_FILE"
         
         # Generate SARIF filename for JFrog
-        SARIF_JFROG_NAME="${{ env.BUILD_NAME }}-codeql-${{ github.run_number }}.sarif"
+        SHORT_SHA="${GITHUB_SHA:0:8}"
+        SARIF_JFROG_NAME="${{ env.BUILD_NAME }}-codeql-${{ github.run_number }}-${SHORT_SHA}.sarif"
         echo "SARIF_JFROG_NAME=$SARIF_JFROG_NAME" >> $GITHUB_ENV
         echo "JFrog SARIF name: $SARIF_JFROG_NAME"
 
