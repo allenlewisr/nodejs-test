@@ -1,0 +1,83 @@
+name: JFrog Promotion
+
+run-name: Promote to ${{ inputs.target_env }} stage
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_env:
+        description: "Target environment to promote the bundle to"
+        required: true
+        default: "QA"
+        type: choice
+        options:
+          - DEV
+          - QA
+          - UAT
+          - PROD
+      release_bundle_version:
+        description: "Version of the release bundle"
+        required: true
+        type: string
+      release_bundle_name:
+        description: "Name of the release bundle"
+        required: false
+        type: string
+      jfrog_repo_name:
+        description: "JFrog repository name to promote the bundle to"
+        required: false
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  promote:
+    name: Promote
+    runs-on: ubuntu-latest
+    steps:
+    - name: Setup JFrog CLI
+      uses: jfrog/setup-jfrog-cli@v4
+      env:  
+        JF_URL: ${{ vars.ARTIFACTORY_URL }}
+      with:
+        oidc-provider-name: github
+        
+    - name: Test connection
+      run: |
+        jf rt ping
+
+    - name: Setup artifact file name and JFrog repository name
+      run: |
+        if [ -n "${{ inputs.release_bundle_name }}" ]; then
+          echo "RELEASE_BUNDLE_NAME=${{ inputs.release_bundle_name }}" >> $GITHUB_ENV
+        else
+          echo "RELEASE_BUNDLE_NAME=${{ github.event.repository.name }}" >> $GITHUB_ENV
+        fi
+
+        if [ -n "${{ inputs.jfrog_repo_name }}" ]; then
+          echo "JFROG_REPO_NAME=${{ inputs.jfrog_repo_name }}" >> $GITHUB_ENV
+        else
+          target_env=$(echo ${{ inputs.target_env }} | tr '[:upper:]' '[:lower:]') # convert to lowercase to match repo convention
+          echo "JFROG_REPO_NAME=${{ github.event.repository.name }}-npm-local-${target_env}" >> $GITHUB_ENV
+        fi
+
+    - name: Get current stage of the release bundle
+      run: |
+        output=$(jf rt curl -XGET /api/v2/promotion/records/${{ env.RELEASE_BUNDLE_NAME }}/${{ env.RELEASE_BUNDLE_VERSION }} --silent --fail)
+        stage=$(echo $output | jq -r '.["promotions"].[] | select(.status == "COMPLETED") | .stage' | head -n 1)
+        echo "Current stage of the release bundle: $stage"
+
+        declare -A valid_path=( ["DEV"]="QA" ["QA"]="UAT" ["UAT"]="PROD" )
+        next_stage="${valid_path[$stage]}"
+        if [ "$next_stage" == "${{ inputs.target_env }}" ]; then
+          echo "Promoting from $stage to $next_stage"
+        else
+          echo "Cannot promote from $stage to ${{ inputs.target_env }} as it is not a valid promotion path"
+          exit 1
+        fi
+
+    - name: Promote release bundle to ${inputs.target_env}
+      run: |
+        jf rbp --include-repos ${{ env.JFROG_REPO_NAME }} ${{ env.RELEASE_BUNDLE_NAME}} ${{ inputs.release_bundle_version }} ${{ inputs.target_env}}

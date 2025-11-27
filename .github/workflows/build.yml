@@ -1,0 +1,138 @@
+on:
+  workflow_dispatch:
+
+name: Build
+
+env:
+  NODE_VERSION: '22.21'
+  JFROG_REPO_NAME: '' # JFrog repo name to upload the artifact to(default: <repo-name>-npm-dev-local)
+  JFROG_REMOTE_REPO_NAME: 'npm-remote' # JFrog remote repo name to resolve the artifact from
+  BUILD_NAME: '' # Build name to upload to JFrog(default: <repo-name>)
+
+permissions:
+  id-token: write
+  contents: read
+  attestations: write
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v5
+
+    - name: Setup node ${{ env.NODE_VERSION }}
+      uses: actions/setup-node@v6
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+
+    - name: Setup JFrog CLI
+      uses: jfrog/setup-jfrog-cli@v4
+      env:  
+        JF_URL: ${{ vars.ARTIFACTORY_URL }}
+      with:
+        oidc-provider-name: github
+
+    - name: Setup build name and JFrog repository name
+      run: |
+        if [ -n "${{ env.BUILD_NAME }}" ]; then
+          echo "BUILD_NAME=${{ env.BUILD_NAME }}" >> $GITHUB_ENV
+        else
+          echo "BUILD_NAME=${{ github.event.repository.name }}" >> $GITHUB_ENV
+        fi
+
+        if [ -n "${{ env.JFROG_REPO_NAME }}" ]; then
+          echo "JFROG_REPO_NAME=${{ env.JFROG_REPO_NAME }}" >> $GITHUB_ENV
+        else
+          echo "JFROG_REPO_NAME=${{ github.event.repository.name }}-npm-local-dev" >> $GITHUB_ENV
+        fi
+    
+    - name: Setup npm registry
+      run: |
+        jf npm-config \
+          --repo-resolve=${{ env.JFROG_REMOTE_REPO_NAME }} \
+          --repo-deploy=${{ env.JFROG_REPO_NAME }}
+    
+    - name: npm install
+      run: |
+        jf npm ci --build-name=${{ env.BUILD_NAME }} --build-number=${{ github.run_number }}
+    
+    - name: npm run lint
+      run: |
+        jf npm run lint --build-name=${{ env.BUILD_NAME }} --build-number=${{ github.run_number }}
+        jf npm run format:check --build-name=${{ env.BUILD_NAME }} --build-number=${{ github.run_number }}
+    
+    - name: Verify JFrog Repository Exists
+      run: |
+        echo "Checking if JFrog repository '${{ env.JFROG_REPO_NAME }}' exists..."
+        if jf rt curl -XGET "/api/repositories/${{ env.JFROG_REPO_NAME }}" --silent --fail > /dev/null 2>&1; then
+          echo "✓ Repository '${{ env.JFROG_REPO_NAME }}' exists"
+        else
+          echo "✗ ERROR: Repository '${{ env.JFROG_REPO_NAME }}' does not exist in JFrog Artifactory"
+          echo "Please create the repository before publishing the package"
+          exit 1
+        fi
+
+    - name: Generate package tarball path
+      run: |
+        PACKAGE_NAME=$(node -p "require('./package.json').name")
+        PACKAGE_VERSION=$(node -p "require('./package.json').version")
+        TARBALL_NAME="${PACKAGE_NAME}-${PACKAGE_VERSION}.tgz"
+        echo "TARBALL_PATH=${TARBALL_NAME}" >> $GITHUB_ENV
+        echo "Package tarball: ${TARBALL_NAME}"
+
+    - name: Create package tarball
+      run: |
+        jf npm pack
+        ls -lh ${{ env.TARBALL_PATH }}
+
+    - name: Publish to JFrog Artifactory
+      run: |
+        jf rt upload "${{ env.TARBALL_PATH }}" "${{ env.JFROG_REPO_NAME }}/" \
+          --build-name=${{ env.BUILD_NAME }} \
+          --build-number=${{ github.run_number }} \
+          --module=${{ env.BUILD_NAME }}
+
+    - name: Attest package with GitHub
+      id: attest
+      uses: actions/attest-build-provenance@v2
+      with:
+        subject-path: '${{ env.TARBALL_PATH }}'
+
+    - name: Create custom attestation with actor info
+      id: attest-actor
+      uses: actions/attest@v2
+      with:
+        subject-path: '${{ env.TARBALL_PATH }}'
+        predicate-type: 'https://github.com/attestation/actor/v1'
+        predicate: |
+          {
+            "actor": "${{ github.actor }}",
+            "actorId": "${{ github.actor_id }}",
+            "triggeredBy": "${{ github.event_name }}",
+            "repository": "${{ github.repository }}",
+            "repositoryOwner": "${{ github.repository_owner }}",
+            "commit": "${{ github.sha }}",
+            "ref": "${{ github.ref }}",
+            "workflow": "${{ github.workflow }}",
+            "workflowRef": "${{ github.workflow_ref }}",
+            "runId": "${{ github.run_id }}",
+            "runNumber": "${{ github.run_number }}",
+            "runAttempt": "${{ github.run_attempt }}",
+            "timestamp": "${{ github.event.head_commit.timestamp }}"
+          }
+
+    - name: Add attestation metadata to JFrog artifact
+      run: |
+        # Add properties to the uploaded artifact in JFrog
+        ARTIFACT_PATH="${{ env.JFROG_REPO_NAME }}/${{ env.TARBALL_PATH }}"
+        
+        jf rt set-props "${ARTIFACT_PATH}" \
+          "attestation.github.url=https://github.com/${{ github.repository }}/attestations;attestation.actor=${{ github.actor }};attestation.trigger=${{ github.event_name }};attestation.commit=${{ github.sha }};attestation.provenance.bundle=${{ steps.attest.outputs.bundle-path }};attestation.actor.bundle=${{ steps.attest-actor.outputs.bundle-path }};attestation.sigstore.enabled=true"
+        
+        echo "✓ Attestation metadata added to artifact in JFrog"
+
+    - name: Publish build-info to JFrog
+      run: |
+        jf rt build-publish --collect-env --collect-git-info ${{ env.BUILD_NAME }} ${{ github.run_number }}
