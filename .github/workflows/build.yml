@@ -13,6 +13,7 @@ permissions:
   id-token: write
   contents: read
   attestations: write
+  security-events: write
 
 jobs:
   build:
@@ -26,6 +27,19 @@ jobs:
       uses: actions/setup-node@v6
       with:
         node-version: ${{ env.NODE_VERSION }}
+
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v3
+      with:
+        languages: javascript
+        queries: security-and-quality
+
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v3
+      with:
+        category: "/language:javascript"
+        output: codeql-results
+        upload: false
 
     - name: Setup JFrog CLI
       uses: jfrog/setup-jfrog-cli@v4
@@ -135,6 +149,64 @@ jobs:
           "attestation.github.url=https://github.com/${{ github.repository }}/attestations;attestation.actor=${{ github.actor }};attestation.trigger=${{ github.event_name }};attestation.commit=${{ github.sha }};attestation.provenance.bundle=${{ steps.attest.outputs.bundle-path }};attestation.actor.bundle=${{ steps.attest-actor.outputs.bundle-path }};attestation.sigstore.enabled=true"
         
         echo "✓ Attestation metadata added to artifact in JFrog"
+
+    - name: Find CodeQL SARIF results
+      id: sarif-info
+      run: |
+        SARIF_FILE=$(find codeql-results -name "*.sarif" -type f | head -n 1)
+        if [ -z "$SARIF_FILE" ]; then
+          echo "Error: No SARIF file found"
+          exit 1
+        fi
+        echo "SARIF_FILE=$SARIF_FILE" >> $GITHUB_ENV
+        echo "Found SARIF file: $SARIF_FILE"
+        
+        # Generate SARIF filename for JFrog
+        SARIF_JFROG_NAME="${{ env.BUILD_NAME }}-codeql-${{ github.run_number }}.sarif"
+        echo "SARIF_JFROG_NAME=$SARIF_JFROG_NAME" >> $GITHUB_ENV
+        echo "JFrog SARIF name: $SARIF_JFROG_NAME"
+
+    - name: Attest CodeQL SARIF results
+      id: attest-codeql
+      uses: actions/attest@v2
+      with:
+        subject-path: '${{ env.SARIF_FILE }}'
+        predicate-type: 'https://github.com/attestation/codeql/v1'
+        predicate: |
+          {
+            "scanType": "codeql",
+            "language": "javascript",
+            "queries": "security-and-quality",
+            "repository": "${{ github.repository }}",
+            "commit": "${{ github.sha }}",
+            "ref": "${{ github.ref }}",
+            "workflow": "${{ github.workflow }}",
+            "runId": "${{ github.run_id }}",
+            "runNumber": "${{ github.run_number }}",
+            "timestamp": "${{ github.event.head_commit.timestamp }}",
+            "resultsFile": "${{ env.SARIF_FILE }}"
+          }
+
+    - name: Upload CodeQL SARIF to JFrog
+      run: |
+        cp "${{ env.SARIF_FILE }}" "${{ env.SARIF_JFROG_NAME }}"
+        
+        jf rt upload "${{ env.SARIF_JFROG_NAME }}" "${{ env.JFROG_REPO_NAME }}/security-reports/" \
+          --build-name=${{ env.BUILD_NAME }} \
+          --build-number=${{ github.run_number }} \
+          --module=${{ env.BUILD_NAME }}-security
+        
+        echo "✓ CodeQL SARIF uploaded to JFrog"
+
+    - name: Add CodeQL attestation metadata to SARIF in JFrog
+      run: |
+        SARIF_ARTIFACT_PATH="${{ env.JFROG_REPO_NAME }}/security-reports/${{ env.SARIF_JFROG_NAME }}"
+        
+        jf rt set-props "${SARIF_ARTIFACT_PATH}" \
+          "scan.type=codeql;scan.language=javascript;attestation.codeql.bundle=${{ steps.attest-codeql.outputs.bundle-path }};attestation.github.url=https://github.com/${{ github.repository }}/attestations;attestation.commit=${{ github.sha }};attestation.sigstore.enabled=true;related.artifact=${{ env.TARBALL_PATH }}"
+        
+        echo "✓ CodeQL attestation metadata added to SARIF in JFrog"
+        echo "✓ SARIF file location: ${SARIF_ARTIFACT_PATH}"
 
     - name: Publish build-info to JFrog
       run: |
