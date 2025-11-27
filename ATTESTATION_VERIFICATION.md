@@ -5,6 +5,7 @@ This guide explains how to verify the GitHub attestations for your build artifac
 ## Overview
 
 Your workflow creates three types of attestations:
+
 1. **Build Provenance** - Verifiable proof of how the package was built
 2. **Actor Information** - Who triggered the build and when
 3. **CodeQL Security Scan** - Security analysis results with attestation
@@ -99,7 +100,7 @@ gh attestation verify "$PACKAGE_FILE" \
 
 # Expected output:
 # ✓ Verification succeeded!
-# 
+#
 # attestation verified for nodejs-template-1.0.0.tgz
 # Repository: your-org/your-repo
 # Workflow: Build
@@ -119,7 +120,7 @@ gh attestation verify "$SARIF_FILE" \
 
 # Expected output:
 # ✓ Verification succeeded!
-# 
+#
 # attestation verified for nodejs-template-codeql-123.sarif
 # Predicate type: https://github.com/attestation/codeql/v1
 ```
@@ -168,17 +169,20 @@ jf rt curl -XGET "/api/storage/<JFROG_REPO_NAME>/security-reports/<sarif-name>" 
 ## Understanding the Attestations
 
 ### 1. Build Provenance Attestation
+
 - **Standard**: SLSA Provenance v1.0
 - **Purpose**: Proves the package was built in your GitHub Actions workflow
 - **Contains**: Builder identity, build parameters, materials (source code)
 - **Signature**: Signed with GitHub's Sigstore keyless signing
 
 ### 2. Actor Attestation
+
 - **Custom Predicate**: `https://github.com/attestation/actor/v1`
 - **Purpose**: Records who triggered the build
 - **Contains**: Actor name, actor ID, trigger event, repository info, commit SHA
 
 ### 3. CodeQL Attestation
+
 - **Custom Predicate**: `https://github.com/attestation/codeql/v1`
 - **Purpose**: Proves security scan was performed
 - **Contains**: Scan type, language, queries used, commit SHA, results file reference
@@ -200,11 +204,11 @@ Add verification to your deployment pipeline:
   run: |
     # Download from JFrog
     jf rt download "$JFROG_REPO_NAME/$ARTIFACT_PATH" .
-    
+
     # Verify attestation
     gh attestation verify "$ARTIFACT_FILE" \
       --repo ${{ github.repository }} || exit 1
-    
+
     # Only deploy if verification succeeds
     echo "✓ Attestation verified - proceeding with deployment"
 ```
@@ -212,16 +216,19 @@ Add verification to your deployment pipeline:
 ## Troubleshooting
 
 ### "No attestations found"
+
 - Ensure the workflow has run successfully
 - Check that `permissions.attestations: write` is set
 - Verify you're using the correct repository/owner
 
 ### "Verification failed"
+
 - The artifact may have been tampered with
 - The artifact might not have an attestation
 - You may be using the wrong repository
 
 ### "Bundle not found"
+
 - Wait a few minutes after the workflow completes
 - Check GitHub's transparency log for the attestation
 
@@ -265,4 +272,3 @@ echo "✅ All verifications passed!"
 ```
 
 Save this as `verify-attestations.sh` and run it to verify all attestations in one go.
-
