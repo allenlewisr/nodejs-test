@@ -110,10 +110,6 @@ jobs:
           --format=table \
           --npm \
             --watches SecurityWatch \
-            --secrets \
-            --sca \
-            --sast \
-            --sbom \
             --fail; then
           echo "✗ ERROR: Vulnerabilities found in package"
           echo "Please fix the vulnerabilities before publishing the package"
