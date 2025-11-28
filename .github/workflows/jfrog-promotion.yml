@@ -36,6 +36,7 @@ jobs:
   promote:
     name: Promote
     runs-on: ubuntu-latest
+    environment: ${{ inputs.target_env }}
     steps:
     - name: Setup JFrog CLI
       uses: jfrog/setup-jfrog-cli@v4

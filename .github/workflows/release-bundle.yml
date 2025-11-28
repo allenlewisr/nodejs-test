@@ -32,13 +32,13 @@ jobs:
         node-version: ${{ env.NODE_VERSION }}
 
     - name: Initialize CodeQL
-      uses: github/codeql-action/init@v3
+      uses: github/codeql-action/init@v4
       with:
         languages: javascript
         queries: security-and-quality
 
     - name: Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@v3
+      uses: github/codeql-action/analyze@v4
       with:
         category: "/language:javascript"
         output: codeql-results
@@ -98,13 +98,17 @@ jobs:
       run: |
         PACKAGE_NAME=$(node -p "require('./package.json').name")
         PACKAGE_VERSION=$(node -p "require('./package.json').version")
-        TARBALL_NAME="${PACKAGE_NAME}-${PACKAGE_VERSION}.tgz"
+        SHORT_SHA="${GITHUB_SHA:0:8}"
+        ORIGINAL_TARBALL="${PACKAGE_NAME}-${PACKAGE_VERSION}.tgz"
+        TARBALL_NAME="${PACKAGE_NAME}-${PACKAGE_VERSION}-${SHORT_SHA}.tgz"
+        echo "ORIGINAL_TARBALL=${ORIGINAL_TARBALL}" >> $GITHUB_ENV
         echo "TARBALL_PATH=${TARBALL_NAME}" >> $GITHUB_ENV
         echo "Package tarball: ${TARBALL_NAME}"
 
     - name: Create package tarball
       run: |
         jf npm pack
+        mv "${{ env.ORIGINAL_TARBALL }}" "${{ env.TARBALL_PATH }}"
         ls -lh ${{ env.TARBALL_PATH }}
 
     - name: Scan package for vulnerabilities
@@ -128,7 +132,7 @@ jobs:
 
     - name: Attest package with GitHub
       id: attest
-      uses: actions/attest-build-provenance@v2
+      uses: actions/attest-build-provenance@v3
       with:
         subject-path: '${{ env.TARBALL_PATH }}'
 
@@ -177,7 +181,8 @@ jobs:
         echo "Found SARIF file: $SARIF_FILE"
         
         # Generate SARIF filename for JFrog
-        SARIF_JFROG_NAME="${{ env.BUILD_NAME }}-codeql-${{ github.run_number }}.sarif"
+        SHORT_SHA="${GITHUB_SHA:0:8}"
+        SARIF_JFROG_NAME="${{ env.BUILD_NAME }}-codeql-${{ github.run_number }}-${SHORT_SHA}.sarif"
         echo "SARIF_JFROG_NAME=$SARIF_JFROG_NAME" >> $GITHUB_ENV
         echo "JFrog SARIF name: $SARIF_JFROG_NAME"
 
@@ -240,7 +245,7 @@ jobs:
 
     - name: Generate bundle version
       run: |
-        echo "BUNDLE_VERSION=${{ env.PACKAGE_VERSION }} +build.${{ github.run_number }}" >> $GITHUB_ENV
+        echo "BUNDLE_VERSION=${{ env.PACKAGE_VERSION }}+build.${{ github.run_number }}" >> $GITHUB_ENV
 
     - name: Create release bundle
       run: |
