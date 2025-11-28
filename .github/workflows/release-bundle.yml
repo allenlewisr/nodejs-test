@@ -254,3 +254,49 @@ jobs:
     - name: Promote release bundle to dev
       run: |
         jf rbp --include-repos ${{ env.JFROG_REPO_NAME }} ${{ env.BUILD_NAME}} ${{ env.BUNDLE_VERSION }} DEV
+
+    - name: Calculate bundle digest for attestation
+      id: bundle-digest
+      run: |
+        # Create a stable representation of the bundle for attestation
+        bundle_subject="${{ env.BUILD_NAME }}:${{ env.BUNDLE_VERSION }}"
+        bundle_digest=$(echo -n "$bundle_subject" | sha256sum | awk '{print $1}')
+        echo "bundle_digest=${bundle_digest}" >> $GITHUB_OUTPUT
+        echo "Bundle digest: ${bundle_digest}"
+
+    - name: Create initial promotion attestation
+      id: attest-promotion
+      uses: actions/attest@v2
+      with:
+        subject-name: "${{ env.BUILD_NAME }}"
+        subject-digest: "sha256:${{ steps.bundle-digest.outputs.bundle_digest }}"
+        predicate-type: 'https://github.com/attestation/promotion/v1'
+        predicate: |
+          {
+            "triggeredBy": "${{ github.actor }}",
+            "triggeredById": "${{ github.actor_id }}",
+            "approvedBy": "automatic",
+            "sourceEnvironment": "BUILD",
+            "targetEnvironment": "DEV",
+            "bundleName": "${{ env.BUILD_NAME }}",
+            "bundleVersion": "${{ env.BUNDLE_VERSION }}",
+            "repository": "${{ github.repository }}",
+            "repositoryOwner": "${{ github.repository_owner }}",
+            "workflow": "${{ github.workflow }}",
+            "workflowRef": "${{ github.workflow_ref }}",
+            "workflowRunId": "${{ github.run_id }}",
+            "workflowRunNumber": "${{ github.run_number }}",
+            "workflowRunAttempt": "${{ github.run_attempt }}",
+            "timestamp": "${{ github.event.head_commit.timestamp }}",
+            "verificationUrl": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          }
+
+    - name: Log promotion attestation
+      run: |
+        echo "✓ Initial promotion attestation created"
+        echo "Bundle: ${{ env.BUILD_NAME }} v${{ env.BUNDLE_VERSION }}"
+        echo "Promotion: BUILD → DEV"
+        echo "Triggered by: ${{ github.actor }}"
+        echo "Attestation bundle: ${{ steps.attest-promotion.outputs.bundle-path }}"
+        echo ""
+        echo "View attestation at: https://github.com/${{ github.repository }}/attestations"

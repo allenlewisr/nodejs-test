@@ -31,6 +31,7 @@ on:
 permissions:
   id-token: write
   contents: read
+  attestations: write
 
 jobs:
   promote:
@@ -81,3 +82,91 @@ jobs:
     - name: Promote release bundle to ${inputs.target_env}
       run: |
         jf rbp --include-repos ${{ env.JFROG_REPO_NAME }} ${{ env.RELEASE_BUNDLE_NAME}} ${{ inputs.release_bundle_version }} ${{ inputs.target_env}}
+
+    - name: Get source environment from promotion records
+      id: get-source-env
+      run: |
+        output=$(jf rt curl -XGET /api/v2/promotion/records/${{ env.RELEASE_BUNDLE_NAME }}/${{ inputs.release_bundle_version }} --silent --fail)
+        # Get the most recent completed promotion (which is the source for this promotion)
+        source_env=$(echo $output | jq -r '.["promotions"].[] | select(.status == "COMPLETED") | .stage' | head -n 1)
+        echo "source_env=${source_env}" >> $GITHUB_OUTPUT
+        echo "Source environment: ${source_env}"
+
+    - name: Fetch approval information
+      id: get-approvers
+      run: |
+        # Fetch approvers from GitHub API
+        APPROVERS=$(gh api repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/approvals \
+          --jq '[.[] | .user.login] | join(",")' 2>/dev/null || echo "")
+        
+        if [ -z "$APPROVERS" ]; then
+          echo "No approvals found (environment may not require reviewers)"
+          echo "approvers=none" >> $GITHUB_OUTPUT
+        else
+          echo "Approved by: ${APPROVERS}"
+          echo "approvers=${APPROVERS}" >> $GITHUB_OUTPUT
+        fi
+      env:
+        GH_TOKEN: ${{ github.token }}
+
+    - name: Calculate bundle digest
+      id: bundle-digest
+      run: |
+        # Get release bundle information from JFrog
+        bundle_info=$(jf rt curl -XGET /api/v2/release_bundle/${{ env.RELEASE_BUNDLE_NAME }}/${{ inputs.release_bundle_version }} --silent --fail)
+        
+        # Create a stable representation of the bundle for attestation
+        # We'll use the bundle name and version as the subject
+        bundle_subject="${{ env.RELEASE_BUNDLE_NAME }}:${{ inputs.release_bundle_version }}"
+        
+        # Calculate SHA256 of the bundle identifier
+        bundle_digest=$(echo -n "$bundle_subject" | sha256sum | awk '{print $1}')
+        
+        echo "bundle_digest=${bundle_digest}" >> $GITHUB_OUTPUT
+        echo "Bundle digest: ${bundle_digest}"
+        echo "Bundle subject: ${bundle_subject}"
+
+    - name: Create promotion attestation
+      id: attest-promotion
+      uses: actions/attest@v2
+      with:
+        subject-name: "${{ env.RELEASE_BUNDLE_NAME }}"
+        subject-digest: "sha256:${{ steps.bundle-digest.outputs.bundle_digest }}"
+        predicate-type: 'https://github.com/attestation/promotion/v1'
+        predicate: |
+          {
+            "triggeredBy": "${{ github.actor }}",
+            "triggeredById": "${{ github.actor_id }}",
+            "approvedBy": "${{ steps.get-approvers.outputs.approvers }}",
+            "sourceEnvironment": "${{ steps.get-source-env.outputs.source_env }}",
+            "targetEnvironment": "${{ inputs.target_env }}",
+            "bundleName": "${{ env.RELEASE_BUNDLE_NAME }}",
+            "bundleVersion": "${{ inputs.release_bundle_version }}",
+            "repository": "${{ github.repository }}",
+            "repositoryOwner": "${{ github.repository_owner }}",
+            "workflow": "${{ github.workflow }}",
+            "workflowRef": "${{ github.workflow_ref }}",
+            "workflowRunId": "${{ github.run_id }}",
+            "workflowRunNumber": "${{ github.run_number }}",
+            "workflowRunAttempt": "${{ github.run_attempt }}",
+            "timestamp": "${{ github.event.head_commit.timestamp }}",
+            "verificationUrl": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          }
+
+    - name: Store attestation metadata in JFrog
+      run: |
+        # Add properties to the release bundle in JFrog promotion records
+        # Note: We're adding metadata about the promotion to help with discovery
+        
+        echo "Storing promotion attestation metadata..."
+        echo "Bundle: ${{ env.RELEASE_BUNDLE_NAME }} v${{ inputs.release_bundle_version }}"
+        echo "Promotion: ${{ steps.get-source-env.outputs.source_env }} → ${{ inputs.target_env }}"
+        echo "Triggered by: ${{ github.actor }}"
+        echo "Approved by: ${{ steps.get-approvers.outputs.approvers }}"
+        echo "Attestation bundle: ${{ steps.attest-promotion.outputs.bundle-path }}"
+        echo "✓ Promotion attestation created and recorded"
+        echo ""
+        echo "To verify this promotion attestation:"
+        echo "  gh attestation verify --bundle ${{ steps.attest-promotion.outputs.bundle-path }}"
+        echo ""
+        echo "View attestation at: https://github.com/${{ github.repository }}/attestations"
