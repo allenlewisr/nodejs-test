@@ -22,6 +22,7 @@ jobs:
   release-bundle:
     name: Release Bundle
     runs-on: ubuntu-latest
+    if: github.actor != 'dependabot[bot]' && github.actor != 'dependabot'
     steps:
     - name: Checkout code
       uses: actions/checkout@v5
