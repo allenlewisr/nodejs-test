@@ -95,12 +95,12 @@ jobs:
     
     - name: npm install
       run: |
-        jf npm ci --build-name=${{ env.BUILD_NAME }} --build-number=${{ github.run_number }}
+        jf npm ci
     
     - name: npm run lint
       run: |
-        jf npm run lint --build-name=${{ env.BUILD_NAME }} --build-number=${{ github.run_number }}
-        jf npm run format:check --build-name=${{ env.BUILD_NAME }} --build-number=${{ github.run_number }}
+        jf npm run lint
+        jf npm run format:check
     
     - name: Verify JFrog Repositories Exist
       run: |
