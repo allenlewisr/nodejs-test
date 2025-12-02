@@ -155,21 +155,30 @@ jobs:
           exit 1
         fi
 
-    - name: Save tarball for attestation
-      run: |
-        # Copy tarball before publishing (npm publish removes the original)
-        cp ${{ env.TARBALL_PATH }} ${{ env.TARBALL_PATH }}.backup
-        echo "✓ Tarball backup created for attestation"
-
     - name: Publish to JFrog Artifactory
       run: |
         jf npm publish --build-name=${{ env.BUILD_NAME }} --build-number=${{ github.run_number }}
 
-    - name: Restore tarball for attestation
+    - name: Download published package for attestation
       run: |
-        # Restore the tarball from backup for attestation steps
-        mv ${{ env.TARBALL_PATH }}.backup ${{ env.TARBALL_PATH }}
-        echo "✓ Tarball restored for attestation"
+        # Download the actual published package from JFrog for attestation
+        # This ensures we attest the exact file stored in JFrog
+        JFROG_ARTIFACT_PATH="${{ env.JFROG_REPO_NAME }}/${{ env.NPM_ARTIFACT_PATH }}"
+        echo "Downloading published package from: ${JFROG_ARTIFACT_PATH}"
+        
+        jf rt download "${JFROG_ARTIFACT_PATH}" --flat
+        
+        if [ ! -f "${{ env.TARBALL_PATH }}" ]; then
+          echo "❌ Failed to download published package"
+          exit 1
+        fi
+        
+        echo "✓ Published package downloaded for attestation"
+        ls -lh ${{ env.TARBALL_PATH }}
+        
+        # Calculate and display the digest for verification
+        DIGEST=$(sha256sum ${{ env.TARBALL_PATH }} | awk '{print $1}')
+        echo "Package SHA256: ${DIGEST}"
 
     - name: Attest package with GitHub
       id: attest
