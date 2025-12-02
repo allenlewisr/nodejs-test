@@ -4,11 +4,12 @@ This guide explains how to verify the GitHub attestations for your build artifac
 
 ## Overview
 
-Your workflow creates three types of attestations:
+Your workflow creates four types of attestations:
 
 1. **Build Provenance** - Verifiable proof of how the package was built
 2. **Actor Information** - Who triggered the build and when
 3. **CodeQL Security Scan** - Security analysis results with attestation
+4. **Promotion Attestations** - Who promoted and approved each environment deployment
 
 All attestations are signed using Sigstore and can be independently verified.
 
@@ -187,13 +188,137 @@ jf rt curl -XGET "/api/storage/<JFROG_REPO_NAME>/security-reports/<sarif-name>" 
 - **Purpose**: Proves security scan was performed
 - **Contains**: Scan type, language, queries used, commit SHA, results file reference
 
+### 4. Promotion Attestation
+
+- **Custom Predicate**: `https://github.com/attestation/promotion/v1`
+- **Purpose**: Records who triggered and approved environment promotions
+- **Contains**: Triggered by user, approved by users, source/target environments, bundle details, timestamp
+- **Created**: Each time a release bundle is promoted to a new environment (QA, UAT, PROD)
+
+## Verifying Promotion Attestations
+
+Promotion attestations capture the complete audit trail of who promoted artifacts through environments and who approved each promotion.
+
+### Viewing Promotion Attestations
+
+```bash
+# View all attestations for your repository (includes promotions)
+# Visit in browser:
+https://github.com/<your-org>/<your-repo>/attestations
+
+# Filter for promotion attestations by predicate type:
+# https://github.com/attestation/promotion/v1
+```
+
+### Understanding Promotion Attestations
+
+Each promotion creates an attestation with the following information:
+
+```json
+{
+  "triggeredBy": "user-who-clicked-promote",
+  "triggeredById": "12345",
+  "approvedBy": "reviewer1,reviewer2",
+  "sourceEnvironment": "QA",
+  "targetEnvironment": "UAT",
+  "bundleName": "nodejs-test",
+  "bundleVersion": "1.0.0+build.42",
+  "repository": "org/repo",
+  "workflowRunId": "123456789",
+  "timestamp": "2025-11-28T10:30:00Z",
+  "verificationUrl": "https://github.com/org/repo/actions/runs/123456789"
+}
+```
+
+### Verifying the Complete Promotion Chain
+
+Use the provided verification script to check the complete chain:
+
+```bash
+# Run the verification script
+./scripts/verify-promotion-chain.sh \
+  --bundle-name nodejs-test \
+  --bundle-version 1.0.0+build.42 \
+  --repo-owner your-org \
+  --repo-name nodejs-test \
+  --jfrog-repo-prefix nodejs-test
+```
+
+This script will:
+1. Query JFrog for promotion history
+2. List all environments the bundle has been promoted to
+3. Guide you through verifying each attestation
+4. Display the complete audit trail
+
+### Manual Verification of Promotion Chain
+
+To manually trace a complete promotion chain:
+
+```bash
+# 1. Get promotion history from JFrog
+jf rt curl -XGET "/api/v2/promotion/records/<bundle-name>/<version>" | jq .
+
+# 2. For each promotion, check the GitHub Actions workflow run
+# Visit: https://github.com/<org>/<repo>/actions/workflows/jfrog-promotion.yml
+
+# 3. View the attestation for each promotion
+# Visit: https://github.com/<org>/<repo>/attestations
+# Look for attestations with predicate type: promotion/v1
+
+# 4. Verify approvers match expected reviewers
+# Check GitHub Environment settings to see configured reviewers
+```
+
+### Example: Verifying a Production Promotion
+
+```bash
+# 1. Verify the build attestation (initial artifact)
+gh attestation verify nodejs-test-1.0.0.tgz --repo org/repo
+
+# 2. Check JFrog promotion history
+jf rt curl -XGET "/api/v2/promotion/records/nodejs-test/1.0.0+build.42" | \
+  jq '.promotions[] | {stage, status, timestamp}'
+
+# Example output:
+# {
+#   "stage": "DEV",
+#   "status": "COMPLETED",
+#   "timestamp": "2025-11-28T08:00:00Z"
+# }
+# {
+#   "stage": "QA",
+#   "status": "COMPLETED",
+#   "timestamp": "2025-11-28T09:00:00Z"
+# }
+# {
+#   "stage": "UAT",
+#   "status": "COMPLETED",
+#   "timestamp": "2025-11-28T10:00:00Z"
+# }
+# {
+#   "stage": "PROD",
+#   "status": "COMPLETED",
+#   "timestamp": "2025-11-28T11:00:00Z"
+# }
+
+# 3. View promotion attestations on GitHub
+# Visit: https://github.com/org/repo/attestations
+# Find attestations for each promotion (DEV→QA, QA→UAT, UAT→PROD)
+
+# 4. Verify each attestation includes approver information
+# Check the predicate of each attestation to see who approved
+```
+
 ## Security Best Practices
 
 1. **Always verify attestations** before using artifacts from JFrog
 2. **Check the actor** to ensure builds were triggered by authorized users
 3. **Review CodeQL results** before deploying
-4. **Store verification logs** for compliance purposes
-5. **Automate verification** in your deployment pipelines
+4. **Verify promotion attestations** to confirm proper approvals at each stage
+5. **Check approver identities** match expected reviewers for each environment
+6. **Store verification logs** for compliance purposes
+7. **Automate verification** in your deployment pipelines
+8. **Audit the complete chain** from build through production deployment
 
 ## Automated Verification in CI/CD
 
@@ -232,12 +357,65 @@ Add verification to your deployment pipeline:
 - Wait a few minutes after the workflow completes
 - Check GitHub's transparency log for the attestation
 
+## Why Promotion Attestations Matter
+
+### The OIDC Identity Challenge
+
+When GitHub Actions authenticates to JFrog using OIDC:
+- The OIDC token represents the **GitHub Actions service identity**, not individual users
+- JFrog sees the workflow identity, not "John Doe who approved the promotion"
+- Individual human actors (triggerer and approvers) are not visible in JFrog logs
+
+### How Promotion Attestations Solve This
+
+Promotion attestations capture and cryptographically sign:
+1. **Who triggered** the promotion (`github.actor`)
+2. **Who approved** the promotion (fetched from GitHub API)
+3. **Environment details** (source and target)
+4. **Bundle information** (name, version)
+5. **Verification URL** (link to GitHub Actions run)
+
+This information is:
+- **Cryptographically signed** using Sigstore (tamper-proof)
+- **Publicly verifiable** by anyone with the bundle information
+- **Permanently logged** in the Sigstore transparency log
+- **Independently auditable** without access to GitHub or JFrog
+
+### Complete Audit Trail
+
+With promotion attestations, you have a complete, verifiable audit trail:
+
+```
+BUILD PHASE
+├─ Build Provenance (SLSA) → Who built the artifact
+├─ Actor Attestation → Who triggered the build
+└─ CodeQL Attestation → Security scan results
+
+PROMOTION PHASE (repeated for each environment)
+├─ Promotion Attestation (DEV→QA) → Who promoted & who approved
+├─ Promotion Attestation (QA→UAT) → Who promoted & who approved
+└─ Promotion Attestation (UAT→PROD) → Who promoted & who approved
+
+VERIFICATION
+└─ All attestations independently verifiable with `gh attestation verify`
+```
+
+### Compliance Benefits
+
+This attestation chain helps satisfy:
+- **SOX**: Separation of duties with documented approvers
+- **PCI-DSS**: Controlled access with audit trail
+- **SOC 2**: Complete change management records
+- **ISO 27001**: Documented and verifiable change processes
+- **SLSA Level 3**: Provenance from source through deployment
+
 ## Additional Resources
 
 - [GitHub Attestations Documentation](https://docs.github.com/en/actions/security-guides/using-artifact-attestations)
 - [SLSA Provenance Specification](https://slsa.dev/provenance/)
 - [Sigstore Documentation](https://docs.sigstore.dev/)
 - [CodeQL Documentation](https://codeql.github.com/docs/)
+- [Promotion Attestation Guide](PROMOTION_ATTESTATION_GUIDE.md) - Detailed implementation guide
 
 ## Example: Complete Verification Script
 
