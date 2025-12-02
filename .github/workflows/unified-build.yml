@@ -150,9 +150,21 @@ jobs:
           exit 1
         fi
 
+    - name: Save tarball for attestation
+      run: |
+        # Copy tarball before publishing (npm publish removes the original)
+        cp ${{ env.TARBALL_PATH }} ${{ env.TARBALL_PATH }}.backup
+        echo "✓ Tarball backup created for attestation"
+
     - name: Publish to JFrog Artifactory
       run: |
         jf npm publish --build-name=${{ env.BUILD_NAME }} --build-number=${{ github.run_number }}
+
+    - name: Restore tarball for attestation
+      run: |
+        # Restore the tarball from backup for attestation steps
+        mv ${{ env.TARBALL_PATH }}.backup ${{ env.TARBALL_PATH }}
+        echo "✓ Tarball restored for attestation"
 
     - name: Attest package with GitHub
       id: attest
