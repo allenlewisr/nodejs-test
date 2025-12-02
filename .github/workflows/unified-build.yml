@@ -257,6 +257,75 @@ jobs:
         echo "✓ Package: ${ARTIFACT_PATH}"
         echo "✓ SARIF: ${{ env.JFROG_SECURITY_REPO_NAME }}/${{ env.SARIF_JFROG_NAME }}"
 
+    - name: Generate SBOM
+      id: generate-sbom
+      run: |
+        SHORT_SHA="${GITHUB_SHA:0:8}"
+        SBOM_JFROG_NAME="${{ env.BUILD_NAME }}-sbom-${{ github.run_number }}-${SHORT_SHA}.json"
+        
+        echo "Generating SBOM in CycloneDX format..."
+        jf npm sbom --sbom-format=cyclonedx > "$SBOM_JFROG_NAME"
+        
+        echo "SBOM_JFROG_NAME=$SBOM_JFROG_NAME" >> $GITHUB_ENV
+        echo "✓ SBOM generated: $SBOM_JFROG_NAME"
+        
+        # Display SBOM summary
+        if command -v jq &> /dev/null; then
+          COMPONENT_COUNT=$(jq '.components | length' "$SBOM_JFROG_NAME" 2>/dev/null || echo "unknown")
+          echo "  Components: $COMPONENT_COUNT"
+        fi
+
+    - name: Attest SBOM
+      id: attest-sbom
+      uses: actions/attest@v2
+      with:
+        subject-path: '${{ env.SBOM_JFROG_NAME }}'
+        predicate-type: 'https://cyclonedx.org/bom'
+        predicate: |
+          {
+            "format": "CycloneDX",
+            "version": "1.5",
+            "repository": "${{ github.repository }}",
+            "commit": "${{ github.sha }}",
+            "ref": "${{ github.ref }}",
+            "workflow": "${{ github.workflow }}",
+            "runId": "${{ github.run_id }}",
+            "runNumber": "${{ github.run_number }}",
+            "timestamp": "${{ github.event.head_commit.timestamp }}",
+            "package": "${{ env.TARBALL_PATH }}"
+          }
+
+    - name: Upload SBOM to JFrog
+      run: |
+        jf rt upload "${{ env.SBOM_JFROG_NAME }}" "${{ env.JFROG_SECURITY_REPO_NAME }}/" \
+          --build-name=${{ env.BUILD_NAME }} \
+          --build-number=${{ github.run_number }} \
+          --module=${{ env.BUILD_NAME }}-security
+        
+        echo "✓ SBOM uploaded to JFrog security repository"
+
+    - name: Add SBOM attestation metadata to JFrog
+      run: |
+        SBOM_ARTIFACT_PATH="${{ env.JFROG_SECURITY_REPO_NAME }}/${{ env.SBOM_JFROG_NAME }}"
+        
+        jf rt set-props "${SBOM_ARTIFACT_PATH}" \
+          "sbom.format=cyclonedx;sbom.type=software-bill-of-materials;attestation.sbom.bundle=${{ steps.attest-sbom.outputs.bundle-path }};attestation.github.url=https://github.com/${{ github.repository }}/attestations;attestation.commit=${{ github.sha }};attestation.sigstore.enabled=true;related.artifact=${{ env.TARBALL_PATH }};related.package.repo=${{ env.JFROG_REPO_NAME }}"
+        
+        echo "✓ SBOM attestation metadata added to JFrog"
+        echo "✓ SBOM file location: ${SBOM_ARTIFACT_PATH}"
+
+    - name: Link package to SBOM security artifact
+      run: |
+        # Add bidirectional link from package to its SBOM file
+        ARTIFACT_PATH="${{ env.JFROG_REPO_NAME }}/${{ env.TARBALL_PATH }}"
+        
+        jf rt set-props "${ARTIFACT_PATH}" \
+          "security.sbom.file=${{ env.SBOM_JFROG_NAME }};security.sbom.path=${{ env.JFROG_SECURITY_REPO_NAME }}/${{ env.SBOM_JFROG_NAME }};security.sbom.format=cyclonedx;security.sbom.attestation=${{ steps.attest-sbom.outputs.bundle-path }}"
+        
+        echo "✓ Package linked to SBOM security artifact"
+        echo "✓ Package: ${ARTIFACT_PATH}"
+        echo "✓ SBOM: ${{ env.JFROG_SECURITY_REPO_NAME }}/${{ env.SBOM_JFROG_NAME }}"
+
     - name: Publish build-info to JFrog
       run: |
         jf rt build-publish --collect-env --collect-git-info ${{ env.BUILD_NAME }} ${{ github.run_number }}
