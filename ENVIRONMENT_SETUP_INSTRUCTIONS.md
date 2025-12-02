@@ -64,21 +64,27 @@ This document provides step-by-step instructions for configuring GitHub Environm
 ## Configuration Examples
 
 ### Example 1: Individual Users
+
 For each environment, add specific GitHub usernames:
+
 - DEV: `alice`, `bob`
 - QA: `charlie`, `diana`
 - UAT: `emma`, `frank`
 - PROD: `george`, `helen`
 
 ### Example 2: GitHub Teams
+
 For each environment, add GitHub teams:
+
 - DEV: `@myorg/dev-team`
 - QA: `@myorg/qa-team`
 - UAT: `@myorg/uat-team`
 - PROD: `@myorg/release-managers`
 
 ### Example 3: Mixed Approach
+
 Combine users and teams:
+
 - DEV: `alice`, `@myorg/dev-team`
 - QA: `@myorg/qa-team`
 - UAT: `@myorg/product-team`
@@ -89,14 +95,17 @@ Combine users and teams:
 For each environment, you can also configure:
 
 ### Deployment Branches
+
 - Limit which branches can deploy to this environment
 - Example: Only allow deployments from `main` or `release/*` branches
 
 ### Environment Secrets
+
 - Add environment-specific secrets (e.g., API keys, credentials)
 - These will only be available to jobs deploying to that environment
 
 ### Environment Variables
+
 - Add environment-specific configuration variables
 - Accessible via `vars.VARIABLE_NAME` in workflows
 
@@ -137,14 +146,17 @@ After setup, test the approval flow:
 ## Troubleshooting
 
 ### Issue: Reviewers don't receive notifications
+
 - Ensure reviewers have write access to the repository
 - Check their GitHub notification settings
 
 ### Issue: Cannot create environments
+
 - You must be a repository administrator
 - For organizations, check if environment creation is restricted
 
 ### Issue: Workflow doesn't wait for approval
+
 - Verify the `environment` field is correctly set in the workflow file
 - Check that the environment name matches exactly (case-sensitive)
 
@@ -152,4 +164,3 @@ After setup, test the approval flow:
 
 - [GitHub Documentation: Using environments for deployment](https://docs.github.com/en/actions/deployment/targeting-different-environments/using-environments-for-deployment)
 - [GitHub Documentation: Reviewing deployments](https://docs.github.com/en/actions/managing-workflow-runs/reviewing-deployments)
-

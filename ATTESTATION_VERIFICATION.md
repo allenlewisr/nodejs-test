@@ -245,6 +245,7 @@ Use the provided verification script to check the complete chain:
 ```
 
 This script will:
+
 1. Query JFrog for promotion history
 2. List all environments the bundle has been promoted to
 3. Guide you through verifying each attestation
@@ -362,6 +363,7 @@ Add verification to your deployment pipeline:
 ### The OIDC Identity Challenge
 
 When GitHub Actions authenticates to JFrog using OIDC:
+
 - The OIDC token represents the **GitHub Actions service identity**, not individual users
 - JFrog sees the workflow identity, not "John Doe who approved the promotion"
 - Individual human actors (triggerer and approvers) are not visible in JFrog logs
@@ -369,6 +371,7 @@ When GitHub Actions authenticates to JFrog using OIDC:
 ### How Promotion Attestations Solve This
 
 Promotion attestations capture and cryptographically sign:
+
 1. **Who triggered** the promotion (`github.actor`)
 2. **Who approved** the promotion (fetched from GitHub API)
 3. **Environment details** (source and target)
@@ -376,6 +379,7 @@ Promotion attestations capture and cryptographically sign:
 5. **Verification URL** (link to GitHub Actions run)
 
 This information is:
+
 - **Cryptographically signed** using Sigstore (tamper-proof)
 - **Publicly verifiable** by anyone with the bundle information
 - **Permanently logged** in the Sigstore transparency log
@@ -403,6 +407,7 @@ VERIFICATION
 ### Compliance Benefits
 
 This attestation chain helps satisfy:
+
 - **SOX**: Separation of duties with documented approvers
 - **PCI-DSS**: Controlled access with audit trail
 - **SOC 2**: Complete change management records

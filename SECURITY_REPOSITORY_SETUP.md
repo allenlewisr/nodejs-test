@@ -7,6 +7,7 @@ This guide explains how to create a dedicated JFrog Artifactory repository for s
 ## Why Separate Repositories?
 
 ### Benefits:
+
 - **Proper Artifact Typing**: npm repos are optimized for npm packages; generic repos for security artifacts
 - **Access Control**: Different teams can have different permissions
 - **Retention Policies**: Security artifacts may need different retention requirements
@@ -131,6 +132,7 @@ env:
 Security artifacts are **bidirectionally linked** to their related packages via JFrog properties:
 
 ### Package Metadata (in npm repo):
+
 ```
 attestation.github.url=https://github.com/org/repo/attestations
 attestation.actor=github-user
@@ -144,6 +146,7 @@ security.scan.attestation=path/to/bundle
 ```
 
 ### SARIF Metadata (in security repo):
+
 ```
 scan.type=codeql
 scan.language=javascript
@@ -153,6 +156,7 @@ related.package.repo=nodejs-test-npm-local-dev
 ```
 
 This **bidirectional linking** allows you to:
+
 - **From Package → SARIF**: Query which security scans were performed on a package
 - **From SARIF → Package**: Query which package a security scan belongs to
 
@@ -302,4 +306,3 @@ jf rt delete "nodejs-test-npm-local-dev/security-reports/"
 - [JFrog Repository Management](https://jfrog.com/help/r/jfrog-artifactory-documentation/repository-management)
 - [JFrog REST API](https://jfrog.com/help/r/jfrog-rest-apis/artifactory-rest-api)
 - [Artifactory Query Language (AQL)](https://jfrog.com/help/r/jfrog-artifactory-documentation/artifactory-query-language)
-

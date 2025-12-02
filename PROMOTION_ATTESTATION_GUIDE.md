@@ -20,11 +20,13 @@ GitHub Actions → OIDC Token → JFrog Artifactory
 ```
 
 **What JFrog sees:**
+
 - Workflow name: `JFrog Promotion`
 - Repository: `org/repo`
 - GitHub Actions service identity
 
 **What JFrog does NOT see:**
+
 - Who triggered the promotion
 - Who approved the promotion
 - Individual human actor identities
@@ -210,6 +212,7 @@ Attestations are stored:
 **Scenario**: SOX audit requires proof of who approved production deployment
 
 **Solution**:
+
 ```bash
 # View production promotion attestation
 # Navigate to: https://github.com/org/repo/attestations
@@ -223,6 +226,7 @@ Attestations are stored:
 **Scenario**: Investigate who deployed a specific version to production
 
 **Solution**:
+
 ```bash
 # Get promotion history
 jf rt curl -XGET "/api/v2/promotion/records/bundle-name/version" | \
@@ -238,6 +242,7 @@ jf rt curl -XGET "/api/v2/promotion/records/bundle-name/version" | \
 **Scenario**: Document all changes for change advisory board
 
 **Solution**:
+
 ```bash
 # Run verification script
 ./scripts/verify-promotion-chain.sh \
@@ -257,6 +262,7 @@ jf rt curl -XGET "/api/v2/promotion/records/bundle-name/version" | \
 **Scenario**: Verify artifact hasn't been tampered with
 
 **Solution**:
+
 ```bash
 # Download artifact from JFrog
 jf rt download "repo/artifact.tgz" .
@@ -317,12 +323,12 @@ Add this to your deployment pipeline:
   run: |
     # Query for promotion attestation
     # This is conceptual - actual implementation depends on your setup
-    
+
     BUNDLE="${{ inputs.bundle-name }}:${{ inputs.bundle-version }}"
-    
+
     echo "Verifying promotion attestation for: $BUNDLE"
     echo "Check: https://github.com/${{ github.repository }}/attestations"
-    
+
     # In practice, you'd query the GitHub API or Sigstore to verify
     # the attestation exists and contains expected approvers
 ```
@@ -341,6 +347,7 @@ Promotion attestations rely on:
 ### What Attestations Guarantee
 
 ✅ **Do guarantee:**
+
 - Who triggered the workflow (from GitHub identity)
 - Who approved in GitHub (from GitHub API)
 - What was promoted (bundle name/version)
@@ -348,6 +355,7 @@ Promotion attestations rely on:
 - Attestation hasn't been tampered with (signature)
 
 ❌ **Do NOT guarantee:**
+
 - Approvers used MFA (depends on GitHub settings)
 - Approvers are still employed (point-in-time record)
 - Approval was well-informed (policy enforcement separate)
@@ -370,11 +378,13 @@ Promotion attestations rely on:
 **Symptom**: `approvedBy: "none"` in attestation
 
 **Causes:**
+
 - Environment doesn't have required reviewers configured
 - Workflow ran before approval feature was implemented
 - API query failed (non-fatal)
 
 **Solution:**
+
 - Configure required reviewers in GitHub Environment settings
 - Check workflow logs for API errors
 
@@ -383,11 +393,13 @@ Promotion attestations rely on:
 **Symptom**: Cannot find attestation on GitHub
 
 **Causes:**
+
 - Workflow didn't complete successfully
 - Permissions missing (`attestations: write`)
 - Attestation creation step failed
 
 **Solution:**
+
 - Check workflow logs for errors
 - Verify permissions in workflow file
 - Ensure `actions/attest@v2` action ran successfully
@@ -397,11 +409,13 @@ Promotion attestations rely on:
 **Symptom**: `verificationUrl` returns 404
 
 **Causes:**
+
 - Workflow run was deleted
 - Repository was renamed/moved
 - Insufficient permissions to view run
 
 **Solution:**
+
 - Check repository settings for workflow retention
 - Update URL if repository moved
 - Ensure you have read access to Actions
@@ -411,11 +425,13 @@ Promotion attestations rely on:
 **Symptom**: Digest doesn't match expected value
 
 **Causes:**
+
 - Bundle name or version changed
 - Different digest calculation method
 - Attestation is for different bundle
 
 **Solution:**
+
 - Verify bundle name and version are exact matches
 - Check that digest calculation uses same method
 - Ensure you're looking at the correct attestation
@@ -481,6 +497,7 @@ response = requests.post(
 **Requirement**: Separation of duties in change management
 
 **How attestations help**:
+
 - `triggeredBy` ≠ `approvedBy` (different people)
 - Environment reviewers configured separately
 - Immutable audit trail in Sigstore
@@ -490,6 +507,7 @@ response = requests.post(
 **Requirement**: Track and monitor all access to cardholder data environment
 
 **How attestations help**:
+
 - Every promotion to production is recorded
 - Approvers are documented
 - Timestamps provide chronological record
@@ -499,6 +517,7 @@ response = requests.post(
 **Requirement**: Control activities for system operations
 
 **How attestations help**:
+
 - Automated controls (environment gates)
 - Detective controls (attestation verification)
 - Audit trail for assessors
@@ -508,6 +527,7 @@ response = requests.post(
 **Requirement**: Change management procedures
 
 **How attestations help**:
+
 - Documented approval process
 - Verifiable records
 - Independent audit capability
@@ -552,4 +572,3 @@ Promotion attestations provide a cryptographically verifiable audit trail that b
 - **Transparency**: Anyone can verify the attestations
 
 The system is production-ready, requires minimal maintenance, and integrates seamlessly with existing GitHub Actions and JFrog workflows.
-

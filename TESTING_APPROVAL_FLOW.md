@@ -59,15 +59,18 @@ Before testing, ensure:
 Test the full promotion path: DEV → QA → UAT → PROD
 
 ### 2.1 Promote DEV to QA
+
 - Follow Test Scenario 1
 - Verify DEV approver(s) can approve
 
 ### 2.2 Promote QA to UAT
+
 - Trigger workflow with **Target environment**: `UAT`
 - Verify different approvers (UAT reviewers) are notified
 - Approve and verify completion
 
 ### 2.3 Promote UAT to PROD
+
 - Trigger workflow with **Target environment**: `PROD`
 - Verify PROD approvers are notified
 - This is the most critical approval - verify extra security if configured
@@ -122,25 +125,33 @@ To see the audit trail:
 ## Common Issues and Solutions
 
 ### Issue: No approval request appears
+
 **Solution:**
+
 - Check that the environment name in the workflow matches exactly (case-sensitive)
 - Verify the environment exists in Settings > Environments
 - Ensure the `environment` field is correctly added to the job
 
 ### Issue: Reviewer doesn't receive notification
+
 **Solution:**
+
 - Verify the user is added as a required reviewer in environment settings
 - Check the user has write access to the repository
 - Ask them to check their GitHub notification settings
 
 ### Issue: "This environment requires approval from XYZ" but can't find the button
+
 **Solution:**
+
 - Refresh the Actions page
 - Only the required reviewers will see the approval button
 - Check that you're logged in as one of the configured reviewers
 
 ### Issue: Workflow fails at promotion step (after approval)
+
 **Solution:**
+
 - This is unrelated to approvals - check the promotion logic
 - Verify JFrog credentials and bundle names are correct
 - Review the step logs for specific error messages
@@ -167,4 +178,3 @@ Once testing is complete:
 
 - [GitHub Docs: Reviewing Deployments](https://docs.github.com/en/actions/managing-workflow-runs/reviewing-deployments)
 - [GitHub Docs: Environment Deployment History](https://docs.github.com/en/actions/deployment/managing-your-deployments/viewing-deployment-history)
-

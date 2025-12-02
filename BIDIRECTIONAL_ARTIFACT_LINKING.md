@@ -34,27 +34,27 @@ The npm packages and their security artifacts (SARIF files) are now **bidirectio
 
 Every npm package tarball includes these security-related properties:
 
-| Property | Description | Example Value |
-|----------|-------------|---------------|
-| `security.repo` | Security repository name | `nodejs-test-security-local` |
-| `security.sarif.file` | SARIF filename | `nodejs-test-codeql-123-abc12345.sarif` |
-| `security.sarif.path` | Full SARIF path | `nodejs-test-security-local/...sarif` |
-| `security.scan.type` | Type of security scan | `codeql` |
-| `security.scan.language` | Scan language | `javascript` |
-| `security.scan.attestation` | Attestation bundle path | `.../attestation-bundle.json` |
+| Property                    | Description              | Example Value                           |
+| --------------------------- | ------------------------ | --------------------------------------- |
+| `security.repo`             | Security repository name | `nodejs-test-security-local`            |
+| `security.sarif.file`       | SARIF filename           | `nodejs-test-codeql-123-abc12345.sarif` |
+| `security.sarif.path`       | Full SARIF path          | `nodejs-test-security-local/...sarif`   |
+| `security.scan.type`        | Type of security scan    | `codeql`                                |
+| `security.scan.language`    | Scan language            | `javascript`                            |
+| `security.scan.attestation` | Attestation bundle path  | `.../attestation-bundle.json`           |
 
 ### SARIF Properties (security repository)
 
 Every SARIF file includes these package-related properties:
 
-| Property | Description | Example Value |
-|----------|-------------|---------------|
-| `related.artifact` | Package filename | `your-package-1.0.0-abc12345.tgz` |
-| `related.package.repo` | Package repository | `nodejs-test-npm-local-dev` |
-| `scan.type` | Type of scan | `codeql` |
-| `scan.language` | Language scanned | `javascript` |
-| `attestation.commit` | Git commit SHA | `abc123...` |
-| `attestation.codeql.bundle` | CodeQL attestation bundle | `.../bundle.json` |
+| Property                    | Description               | Example Value                     |
+| --------------------------- | ------------------------- | --------------------------------- |
+| `related.artifact`          | Package filename          | `your-package-1.0.0-abc12345.tgz` |
+| `related.package.repo`      | Package repository        | `nodejs-test-npm-local-dev`       |
+| `scan.type`                 | Type of scan              | `codeql`                          |
+| `scan.language`             | Language scanned          | `javascript`                      |
+| `attestation.commit`        | Git commit SHA            | `abc123...`                       |
+| `attestation.codeql.bundle` | CodeQL attestation bundle | `.../bundle.json`                 |
 
 ## Query Examples
 
@@ -74,10 +74,13 @@ items.find({
 ```
 
 **Response:**
+
 ```json
 {
   "properties": {
-    "security.sarif.path": ["nodejs-test-security-local/nodejs-test-codeql-123-abc12345.sarif"]
+    "security.sarif.path": [
+      "nodejs-test-security-local/nodejs-test-codeql-123-abc12345.sarif"
+    ]
   }
 }
 ```
@@ -98,6 +101,7 @@ items.find({
 ```
 
 **Response:**
+
 ```json
 {
   "properties": {
@@ -160,6 +164,7 @@ fi
 ### How Links Are Created
 
 **Step 1: Package is uploaded**
+
 ```yaml
 - name: Publish to JFrog Artifactory
   run: |
@@ -169,6 +174,7 @@ fi
 ```
 
 **Step 2: Initial package metadata (without SARIF link)**
+
 ```yaml
 - name: Add attestation metadata to JFrog artifact
   run: |
@@ -177,6 +183,7 @@ fi
 ```
 
 **Step 3: SARIF is uploaded**
+
 ```yaml
 - name: Upload CodeQL SARIF to JFrog
   run: |
@@ -184,6 +191,7 @@ fi
 ```
 
 **Step 4: SARIF → Package link**
+
 ```yaml
 - name: Add CodeQL attestation metadata to SARIF in JFrog
   run: |
@@ -192,6 +200,7 @@ fi
 ```
 
 **Step 5: Package → SARIF link (completing bidirectional link)**
+
 ```yaml
 - name: Link package to SARIF security artifact
   run: |
@@ -307,10 +316,10 @@ NOT_SCANNED=0
 
 for PACKAGE in $PACKAGES; do
   ((TOTAL++))
-  
+
   SCAN_TYPE=$(jf rt curl -XGET "/api/storage/${REPO}/${PACKAGE}" 2>/dev/null | \
     jq -r '.properties["security.scan.type"][0]')
-  
+
   if [ -n "$SCAN_TYPE" ] && [ "$SCAN_TYPE" != "null" ]; then
     ((SCANNED++))
     echo "✓ $PACKAGE - Scanned ($SCAN_TYPE)"
@@ -350,6 +359,7 @@ fi
 **Symptom:** Package has no `security.sarif.path` property
 
 **Solutions:**
+
 - Check if the "Link package to SARIF" step ran successfully
 - Verify the step runs AFTER SARIF upload
 - Check workflow logs for errors
@@ -359,6 +369,7 @@ fi
 **Symptom:** SARIF path in package properties points to non-existent file
 
 **Solutions:**
+
 - Verify SARIF was uploaded successfully
 - Check SARIF repository name matches
 - Verify retention policies haven't deleted the SARIF
@@ -368,6 +379,7 @@ fi
 **Symptom:** AQL queries return empty results
 
 **Solutions:**
+
 - Verify property names match exactly (case-sensitive)
 - Check if properties were set (use `/api/storage/...` endpoint)
 - Ensure you have read permissions on both repositories
@@ -389,4 +401,3 @@ Potential additions to the linking system:
 - [ATTESTATION_VERIFICATION.md](./ATTESTATION_VERIFICATION.md) - Attestation verification
 - [JFrog Properties API](https://jfrog.com/help/r/jfrog-rest-apis/set-item-properties)
 - [JFrog AQL Documentation](https://jfrog.com/help/r/jfrog-artifactory-documentation/artifactory-query-language)
-
