@@ -404,6 +404,23 @@ jobs:
         echo "bundle_digest=${bundle_digest}" >> $GITHUB_OUTPUT
         echo "Bundle digest: ${bundle_digest}"
 
+    - name: Fetch approval information
+      id: get-approvers
+      run: |
+        # Fetch approvers from GitHub API
+        APPROVERS=$(gh api repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/approvals \
+          --jq '[.[] | .user.login] | join(",")' 2>/dev/null || echo "")
+        
+        if [ -z "$APPROVERS" ]; then
+          echo "No approvals found (environment may not require reviewers)"
+          echo "approvers=automatic" >> $GITHUB_OUTPUT
+        else
+          echo "Approved by: ${APPROVERS}"
+          echo "approvers=${APPROVERS}" >> $GITHUB_OUTPUT
+        fi
+      env:
+        GH_TOKEN: ${{ github.token }}
+
     - name: Create initial promotion attestation
       id: attest-promotion
       uses: actions/attest@v2
@@ -415,7 +432,7 @@ jobs:
           {
             "triggeredBy": "${{ github.actor }}",
             "triggeredById": "${{ github.actor_id }}",
-            "approvedBy": "automatic",
+            "approvedBy": "${{ steps.get-approvers.outputs.approvers }}",
             "sourceEnvironment": "BUILD",
             "targetEnvironment": "DEV",
             "bundleName": "${{ env.BUILD_NAME }}",
