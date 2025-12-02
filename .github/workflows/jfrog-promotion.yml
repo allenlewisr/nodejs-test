@@ -274,7 +274,7 @@ jobs:
       id: attest-promotion
       uses: actions/attest@v2
       with:
-        subject-name: "${{ env.RELEASE_BUNDLE_NAME }}"
+        subject-name: "${{ env.RELEASE_BUNDLE_NAME }}/${{ inputs.release_bundle_version }}"
         subject-digest: "sha256:${{ steps.bundle-digest.outputs.bundle_digest }}"
         predicate-type: 'https://github.com/attestation/promotion/v1'
         predicate: |
