@@ -128,9 +128,14 @@ jobs:
         PACKAGE_VERSION=$(node -p "require('./package.json').version")
         SHORT_SHA="${GITHUB_SHA:0:8}"
         TARBALL_NAME="${PACKAGE_NAME}-${PACKAGE_VERSION}.tgz"
+        # npm publish creates path: repo-name/package-name/-/tarball.tgz
+        NPM_ARTIFACT_PATH="${PACKAGE_NAME}/-/${TARBALL_NAME}"
+        echo "PACKAGE_NAME=${PACKAGE_NAME}" >> $GITHUB_ENV
         echo "TARBALL_PATH=${TARBALL_NAME}" >> $GITHUB_ENV
+        echo "NPM_ARTIFACT_PATH=${NPM_ARTIFACT_PATH}" >> $GITHUB_ENV
         echo "SHORT_SHA=${SHORT_SHA}" >> $GITHUB_ENV
         echo "Package tarball: ${TARBALL_NAME}"
+        echo "NPM artifact path: ${NPM_ARTIFACT_PATH}"
         echo "Git SHA: ${SHORT_SHA} (will be stored in artifact properties)"
 
     - name: Create package tarball
@@ -197,13 +202,15 @@ jobs:
 
     - name: Add attestation metadata to JFrog artifact
       run: |
-        # Add properties to the uploaded artifact in JFrog
-        ARTIFACT_PATH="${{ env.JFROG_REPO_NAME }}/${{ env.TARBALL_PATH }}"
+        # Add properties to the uploaded artifact in JFrog (using npm publish path structure)
+        ARTIFACT_PATH="${{ env.JFROG_REPO_NAME }}/${{ env.NPM_ARTIFACT_PATH }}"
         
+        echo "Setting properties on: ${ARTIFACT_PATH}"
         jf rt set-props "${ARTIFACT_PATH}" \
           "git.commit.sha=${{ github.sha }};git.commit.short=${{ env.SHORT_SHA }};git.branch=${{ github.ref_name }};build.name=${{ env.BUILD_NAME }};build.number=${{ github.run_number }};attestation.github.url=https://github.com/${{ github.repository }}/attestations;attestation.actor=${{ github.actor }};attestation.trigger=${{ github.event_name }};attestation.commit=${{ github.sha }};attestation.provenance.bundle=${{ steps.attest.outputs.bundle-path }};attestation.actor.bundle=${{ steps.attest-actor.outputs.bundle-path }};attestation.sigstore.enabled=true;security.repo=${{ env.JFROG_SECURITY_REPO_NAME }}"
         
         echo "✓ Attestation metadata added to artifact in JFrog"
+        echo "  Artifact: ${ARTIFACT_PATH}"
         echo "  Git SHA: ${{ env.SHORT_SHA }}"
         echo "  Build: ${{ env.BUILD_NAME }}/${{ github.run_number }}"
 
@@ -268,7 +275,7 @@ jobs:
     - name: Link package to SARIF security artifact
       run: |
         # Add bidirectional link from package to its SARIF file
-        ARTIFACT_PATH="${{ env.JFROG_REPO_NAME }}/${{ env.TARBALL_PATH }}"
+        ARTIFACT_PATH="${{ env.JFROG_REPO_NAME }}/${{ env.NPM_ARTIFACT_PATH }}"
         
         jf rt set-props "${ARTIFACT_PATH}" \
           "security.sarif.file=${{ env.SARIF_JFROG_NAME }};security.sarif.path=${{ env.JFROG_SECURITY_REPO_NAME }}/${{ env.SARIF_JFROG_NAME }};security.scan.type=codeql;security.scan.language=javascript;security.scan.attestation=${{ steps.attest-codeql.outputs.bundle-path }}"
@@ -336,7 +343,7 @@ jobs:
     - name: Link package to SBOM security artifact
       run: |
         # Add bidirectional link from package to its SBOM file
-        ARTIFACT_PATH="${{ env.JFROG_REPO_NAME }}/${{ env.TARBALL_PATH }}"
+        ARTIFACT_PATH="${{ env.JFROG_REPO_NAME }}/${{ env.NPM_ARTIFACT_PATH }}"
         
         jf rt set-props "${ARTIFACT_PATH}" \
           "security.sbom.file=${{ env.SBOM_JFROG_NAME }};security.sbom.path=${{ env.JFROG_SECURITY_REPO_NAME }}/${{ env.SBOM_JFROG_NAME }};security.sbom.format=cyclonedx;security.sbom.attestation=${{ steps.attest-sbom.outputs.bundle-path }}"
