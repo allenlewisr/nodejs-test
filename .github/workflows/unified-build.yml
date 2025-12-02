@@ -24,6 +24,10 @@ jobs:
   build:
     name: Build and Publish
     runs-on: ubuntu-latest
+    outputs:
+      build_name: ${{ steps.setup-build-env.outputs.build_name }}
+      jfrog_repo_name: ${{ steps.setup-build-env.outputs.jfrog_repo_name }}
+      jfrog_security_repo_name: ${{ steps.setup-build-env.outputs.jfrog_security_repo_name }}
     steps:
     - name: Checkout code
       uses: actions/checkout@v5
@@ -57,24 +61,31 @@ jobs:
         jf rt ping
 
     - name: Setup build name and JFrog repository name
+      id: setup-build-env
       run: |
         if [ -n "${{ env.BUILD_NAME }}" ]; then
-          echo "BUILD_NAME=${{ env.BUILD_NAME }}" >> $GITHUB_ENV
+          BUILD_NAME_VALUE="${{ env.BUILD_NAME }}"
         else
-          echo "BUILD_NAME=${{ github.event.repository.name }}" >> $GITHUB_ENV
+          BUILD_NAME_VALUE="${{ github.event.repository.name }}"
         fi
+        echo "BUILD_NAME=${BUILD_NAME_VALUE}" >> $GITHUB_ENV
+        echo "build_name=${BUILD_NAME_VALUE}" >> $GITHUB_OUTPUT
 
         if [ -n "${{ env.JFROG_REPO_NAME }}" ]; then
-          echo "JFROG_REPO_NAME=${{ env.JFROG_REPO_NAME }}" >> $GITHUB_ENV
+          JFROG_REPO_NAME_VALUE="${{ env.JFROG_REPO_NAME }}"
         else
-          echo "JFROG_REPO_NAME=${{ github.event.repository.name }}-npm-local-dev" >> $GITHUB_ENV
+          JFROG_REPO_NAME_VALUE="${{ github.event.repository.name }}-npm-local-dev"
         fi
+        echo "JFROG_REPO_NAME=${JFROG_REPO_NAME_VALUE}" >> $GITHUB_ENV
+        echo "jfrog_repo_name=${JFROG_REPO_NAME_VALUE}" >> $GITHUB_OUTPUT
 
         if [ -n "${{ env.JFROG_SECURITY_REPO_NAME }}" ]; then
-          echo "JFROG_SECURITY_REPO_NAME=${{ env.JFROG_SECURITY_REPO_NAME }}" >> $GITHUB_ENV
+          JFROG_SECURITY_REPO_NAME_VALUE="${{ env.JFROG_SECURITY_REPO_NAME }}"
         else
-          echo "JFROG_SECURITY_REPO_NAME=${{ github.event.repository.name }}-security-local" >> $GITHUB_ENV
+          JFROG_SECURITY_REPO_NAME_VALUE="${{ github.event.repository.name }}-security-local"
         fi
+        echo "JFROG_SECURITY_REPO_NAME=${JFROG_SECURITY_REPO_NAME_VALUE}" >> $GITHUB_ENV
+        echo "jfrog_security_repo_name=${JFROG_SECURITY_REPO_NAME_VALUE}" >> $GITHUB_OUTPUT
     
     - name: Setup npm registry
       run: |
@@ -355,19 +366,11 @@ jobs:
       run: |
         jf rt ping
 
-    - name: Setup build name and JFrog repository name
+    - name: Set build environment from build job
       run: |
-        if [ -n "${{ env.BUILD_NAME }}" ]; then
-          echo "BUILD_NAME=${{ env.BUILD_NAME }}" >> $GITHUB_ENV
-        else
-          echo "BUILD_NAME=${{ github.event.repository.name }}" >> $GITHUB_ENV
-        fi
-
-        if [ -n "${{ env.JFROG_REPO_NAME }}" ]; then
-          echo "JFROG_REPO_NAME=${{ env.JFROG_REPO_NAME }}" >> $GITHUB_ENV
-        else
-          echo "JFROG_REPO_NAME=${{ github.event.repository.name }}-npm-local-dev" >> $GITHUB_ENV
-        fi
+        echo "BUILD_NAME=${{ needs.build.outputs.build_name }}" >> $GITHUB_ENV
+        echo "JFROG_REPO_NAME=${{ needs.build.outputs.jfrog_repo_name }}" >> $GITHUB_ENV
+        echo "JFROG_SECURITY_REPO_NAME=${{ needs.build.outputs.jfrog_security_repo_name }}" >> $GITHUB_ENV
 
     - name: Extract version from branch name
       run: |
