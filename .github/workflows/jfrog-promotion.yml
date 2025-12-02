@@ -82,7 +82,7 @@ jobs:
         echo ""
         
         # Check if the release bundle exists
-        if ! bundle_info=$(jf rt curl -XGET "/api/v2/release_bundle/${{ env.RELEASE_BUNDLE_NAME }}/${{ inputs.release_bundle_version }}" --silent --fail 2>&1); then
+        if ! bundle_info=$(jf rt curl -XGET "/api/v2/release_bundle/records/${{ env.RELEASE_BUNDLE_NAME }}/${{ inputs.release_bundle_version }}" --silent --fail 2>&1); then
           echo "❌ ERROR: Release bundle not found!"
           echo ""
           echo "Details:"
@@ -257,7 +257,7 @@ jobs:
       id: bundle-digest
       run: |
         # Get release bundle information from JFrog
-        bundle_info=$(jf rt curl -XGET /api/v2/release_bundle/${{ env.RELEASE_BUNDLE_NAME }}/${{ inputs.release_bundle_version }} --silent --fail)
+        bundle_info=$(jf rt curl -XGET /api/v2/release_bundle/records/${{ env.RELEASE_BUNDLE_NAME }}/${{ inputs.release_bundle_version }} --silent --fail)
         
         # Create a stable representation of the bundle for attestation
         # We'll use the bundle name and version as the subject
