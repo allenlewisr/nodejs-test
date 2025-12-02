@@ -10,6 +10,7 @@ env:
   NODE_VERSION: '22.21'
   JFROG_REPO_NAME: '' # JFrog repo name to upload the artifact to(default: <repo-name>-npm-dev-local)
   JFROG_REMOTE_REPO_NAME: 'npm-remote' # JFrog remote repo name to resolve the artifact from
+  JFROG_SECURITY_REPO_NAME: '' # JFrog repo for security artifacts (default: <repo-name>-security-local)
   BUILD_NAME: '' # Build name to upload to JFrog(default: <repo-name>)
 
 permissions:
@@ -22,6 +23,7 @@ jobs:
   release-bundle:
     name: Release Bundle
     runs-on: ubuntu-latest
+    environment: DEV
     if: github.actor != 'dependabot[bot]' && github.actor != 'dependabot'
     steps:
     - name: Checkout code
@@ -68,6 +70,12 @@ jobs:
         else
           echo "JFROG_REPO_NAME=${{ github.event.repository.name }}-npm-local-dev" >> $GITHUB_ENV
         fi
+
+        if [ -n "${{ env.JFROG_SECURITY_REPO_NAME }}" ]; then
+          echo "JFROG_SECURITY_REPO_NAME=${{ env.JFROG_SECURITY_REPO_NAME }}" >> $GITHUB_ENV
+        else
+          echo "JFROG_SECURITY_REPO_NAME=${{ github.event.repository.name }}-security-local" >> $GITHUB_ENV
+        fi
     
     - name: Setup npm registry
       run: |
@@ -84,7 +92,7 @@ jobs:
         jf npm run lint --build-name=${{ env.BUILD_NAME }} --build-number=${{ github.run_number }}
         jf npm run format:check --build-name=${{ env.BUILD_NAME }} --build-number=${{ github.run_number }}
     
-    - name: Verify JFrog Repository Exists
+    - name: Verify JFrog Repositories Exist
       run: |
         echo "Checking if JFrog repository '${{ env.JFROG_REPO_NAME }}' exists..."
         if jf rt curl -XGET "/api/repositories/${{ env.JFROG_REPO_NAME }}" --silent --fail > /dev/null 2>&1; then
@@ -92,6 +100,15 @@ jobs:
         else
           echo "✗ ERROR: Repository '${{ env.JFROG_REPO_NAME }}' does not exist in JFrog Artifactory"
           echo "Please create the repository before publishing the package"
+          exit 1
+        fi
+
+        echo "Checking if JFrog security repository '${{ env.JFROG_SECURITY_REPO_NAME }}' exists..."
+        if jf rt curl -XGET "/api/repositories/${{ env.JFROG_SECURITY_REPO_NAME }}" --silent --fail > /dev/null 2>&1; then
+          echo "✓ Repository '${{ env.JFROG_SECURITY_REPO_NAME }}' exists"
+        else
+          echo "✗ ERROR: Repository '${{ env.JFROG_SECURITY_REPO_NAME }}' does not exist in JFrog Artifactory"
+          echo "Please create the security repository as a Generic repository type"
           exit 1
         fi
 
@@ -166,7 +183,7 @@ jobs:
         ARTIFACT_PATH="${{ env.JFROG_REPO_NAME }}/${{ env.TARBALL_PATH }}"
         
         jf rt set-props "${ARTIFACT_PATH}" \
-          "attestation.github.url=https://github.com/${{ github.repository }}/attestations;attestation.actor=${{ github.actor }};attestation.trigger=${{ github.event_name }};attestation.commit=${{ github.sha }};attestation.provenance.bundle=${{ steps.attest.outputs.bundle-path }};attestation.actor.bundle=${{ steps.attest-actor.outputs.bundle-path }};attestation.sigstore.enabled=true"
+          "attestation.github.url=https://github.com/${{ github.repository }}/attestations;attestation.actor=${{ github.actor }};attestation.trigger=${{ github.event_name }};attestation.commit=${{ github.sha }};attestation.provenance.bundle=${{ steps.attest.outputs.bundle-path }};attestation.actor.bundle=${{ steps.attest-actor.outputs.bundle-path }};attestation.sigstore.enabled=true;security.repo=${{ env.JFROG_SECURITY_REPO_NAME }}"
         
         echo "✓ Attestation metadata added to artifact in JFrog"
 
@@ -212,22 +229,34 @@ jobs:
       run: |
         cp "${{ env.SARIF_FILE }}" "${{ env.SARIF_JFROG_NAME }}"
         
-        jf rt upload "${{ env.SARIF_JFROG_NAME }}" "${{ env.JFROG_REPO_NAME }}/security-reports/" \
+        jf rt upload "${{ env.SARIF_JFROG_NAME }}" "${{ env.JFROG_SECURITY_REPO_NAME }}/" \
           --build-name=${{ env.BUILD_NAME }} \
           --build-number=${{ github.run_number }} \
           --module=${{ env.BUILD_NAME }}-security
         
-        echo "✓ CodeQL SARIF uploaded to JFrog"
+        echo "✓ CodeQL SARIF uploaded to JFrog security repository"
 
     - name: Add CodeQL attestation metadata to SARIF in JFrog
       run: |
-        SARIF_ARTIFACT_PATH="${{ env.JFROG_REPO_NAME }}/security-reports/${{ env.SARIF_JFROG_NAME }}"
+        SARIF_ARTIFACT_PATH="${{ env.JFROG_SECURITY_REPO_NAME }}/${{ env.SARIF_JFROG_NAME }}"
         
         jf rt set-props "${SARIF_ARTIFACT_PATH}" \
-          "scan.type=codeql;scan.language=javascript;attestation.codeql.bundle=${{ steps.attest-codeql.outputs.bundle-path }};attestation.github.url=https://github.com/${{ github.repository }}/attestations;attestation.commit=${{ github.sha }};attestation.sigstore.enabled=true;related.artifact=${{ env.TARBALL_PATH }}"
+          "scan.type=codeql;scan.language=javascript;attestation.codeql.bundle=${{ steps.attest-codeql.outputs.bundle-path }};attestation.github.url=https://github.com/${{ github.repository }}/attestations;attestation.commit=${{ github.sha }};attestation.sigstore.enabled=true;related.artifact=${{ env.TARBALL_PATH }};related.package.repo=${{ env.JFROG_REPO_NAME }}"
         
         echo "✓ CodeQL attestation metadata added to SARIF in JFrog"
         echo "✓ SARIF file location: ${SARIF_ARTIFACT_PATH}"
+
+    - name: Link package to SARIF security artifact
+      run: |
+        # Add bidirectional link from package to its SARIF file
+        ARTIFACT_PATH="${{ env.JFROG_REPO_NAME }}/${{ env.TARBALL_PATH }}"
+        
+        jf rt set-props "${ARTIFACT_PATH}" \
+          "security.sarif.file=${{ env.SARIF_JFROG_NAME }};security.sarif.path=${{ env.JFROG_SECURITY_REPO_NAME }}/${{ env.SARIF_JFROG_NAME }};security.scan.type=codeql;security.scan.language=javascript;security.scan.attestation=${{ steps.attest-codeql.outputs.bundle-path }}"
+        
+        echo "✓ Package linked to SARIF security artifact"
+        echo "✓ Package: ${ARTIFACT_PATH}"
+        echo "✓ SARIF: ${{ env.JFROG_SECURITY_REPO_NAME }}/${{ env.SARIF_JFROG_NAME }}"
 
     - name: Publish build-info to JFrog
       run: |
