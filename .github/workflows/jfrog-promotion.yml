@@ -215,7 +215,7 @@ jobs:
 
     - name: Promote release bundle to ${inputs.target_env}
       run: |
-        jf rbp --include-repos ${{ env.JFROG_REPO_NAME }} ${{ env.RELEASE_BUNDLE_NAME}} ${{ inputs.release_bundle_version }} ${{ inputs.target_env}}
+        jf rbp --include-repos "${{ env.JFROG_REPO_NAME }};${{ env.JFROG_SECURITY_REPO_NAME }}" ${{ env.RELEASE_BUNDLE_NAME}} ${{ inputs.release_bundle_version }} ${{ inputs.target_env}}
 
     - name: Get source environment from promotion records
       id: get-source-env
