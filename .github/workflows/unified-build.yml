@@ -390,7 +390,7 @@ jobs:
 
     - name: Promote release bundle to dev
       run: |
-        jf rbp --include-repos ${{ env.JFROG_REPO_NAME }} ${{ env.BUILD_NAME}} ${{ env.BUNDLE_VERSION }} DEV
+        jf rbp --include-repos "${{ env.JFROG_REPO_NAME }};${{ env.JFROG_SECURITY_REPO_NAME }}" ${{ env.BUILD_NAME}} ${{ env.BUNDLE_VERSION }} DEV
 
     - name: Calculate bundle digest for attestation
       id: bundle-digest
