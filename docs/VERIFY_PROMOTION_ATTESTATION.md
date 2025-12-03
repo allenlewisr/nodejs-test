@@ -20,6 +20,7 @@ cat sha256:6acb2e3ac756c5aeb3504aff8ef3ada13033165a6d3003713084ad3e41874132.json
 ```
 
 **Result shows:**
+
 - Actor: `allenlewis32`
 - Triggered by: `push`
 - Workflow: `Build and Release`
@@ -33,16 +34,19 @@ Promotion attestations are created by the **JFrog Promotion workflow**, not the 
 ### Method 1: View All Attestations on GitHub
 
 Visit your repository's attestation page:
+
 ```
 https://github.com/allenlewisr/nodejs-test/attestations
 ```
 
 On this page, you can:
+
 - See all attestations (build and promotion)
 - Filter by predicate type
 - Download individual attestation bundles
 
 **Look for:**
+
 - Predicate Type: `https://github.com/attestation/promotion/v1`
 
 ### Method 2: Extract from Workflow Logs
@@ -50,6 +54,7 @@ On this page, you can:
 When you run a promotion workflow:
 
 1. **Run the promotion workflow:**
+
    ```bash
    gh workflow run jfrog-promotion.yml \
      -f target_env=QA \
@@ -57,16 +62,19 @@ When you run a promotion workflow:
    ```
 
 2. **Find the workflow run:**
+
    ```bash
    gh run list --workflow=jfrog-promotion.yml --limit 5
    ```
 
 3. **View the logs:**
+
    ```bash
    gh run view <run-id> --log
    ```
 
 4. **Look for this line in the logs:**
+
    ```
    Attestation bundle: /path/to/sha256:<digest>.jsonl
    ```
@@ -102,6 +110,7 @@ Add this step after the attestation creation:
 ```
 
 Then download it:
+
 ```bash
 # Get the run ID
 gh run list --workflow=jfrog-promotion.yml --limit 1
@@ -146,6 +155,7 @@ cat promotion-bundle.jsonl | jq -r '.dsseEnvelope.payload' | base64 -d | jq '.pr
 ```
 
 This will show you:
+
 ```json
 {
   "triggeredBy": "username",
@@ -176,6 +186,7 @@ Use the provided verification script:
 ```
 
 This will:
+
 - ✅ Check JFrog promotion history
 - ✅ Guide you to view attestations on GitHub
 - ✅ Provide complete verification checklist
@@ -185,6 +196,7 @@ This will:
 ### Certificate/TLS Errors
 
 If you see TLS errors when using `gh` commands:
+
 ```bash
 # Try with network permissions or outside sandbox
 # Or use the web interface instead
@@ -194,6 +206,7 @@ open https://github.com/allenlewisr/nodejs-test/attestations
 ### Bundle Verification Fails
 
 If `gh attestation verify` fails:
+
 1. Ensure you have the latest `gh` CLI version
 2. Try manual inspection with `jq` instead
 3. Verify on GitHub's web interface
@@ -202,6 +215,7 @@ If `gh attestation verify` fails:
 ### No Promotion Attestations Found
 
 If you don't see promotion attestations:
+
 1. Make sure you've run the promotion workflow (not just the build)
 2. Check that the promotion workflow completed successfully
 3. Verify the attestation step didn't fail (check logs)
@@ -210,11 +224,13 @@ If you don't see promotion attestations:
 ## Summary
 
 **Current Status:**
+
 - ✅ You have build attestations (actor + provenance)
 - ⏳ Promotion attestations are created when you run promotions
 - 📍 View all at: https://github.com/allenlewisr/nodejs-test/attestations
 
 **Next Steps:**
+
 1. Visit the attestations page to see all attestations
 2. Run a promotion workflow to create promotion attestations
 3. Use the verification script to check the complete chain
@@ -222,15 +238,14 @@ If you don't see promotion attestations:
 
 ## Quick Reference
 
-| Attestation Type | Created By | Subject | Predicate Type |
-|-----------------|------------|---------|----------------|
-| **Actor** | Build workflow | Artifact file (.tgz) | `github.com/attestation/actor/v1` |
-| **Provenance** | Build workflow | Artifact file (.tgz) | `slsa.dev/provenance/v1` |
-| **Promotion** | Promotion workflow | Bundle identifier | `github.com/attestation/promotion/v1` |
+| Attestation Type | Created By         | Subject              | Predicate Type                        |
+| ---------------- | ------------------ | -------------------- | ------------------------------------- |
+| **Actor**        | Build workflow     | Artifact file (.tgz) | `github.com/attestation/actor/v1`     |
+| **Provenance**   | Build workflow     | Artifact file (.tgz) | `slsa.dev/provenance/v1`              |
+| **Promotion**    | Promotion workflow | Bundle identifier    | `github.com/attestation/promotion/v1` |
 
 ## Additional Resources
 
 - [PROMOTION_ATTESTATION_GUIDE.md](PROMOTION_ATTESTATION_GUIDE.md) - Complete guide on promotion attestations
 - [scripts/verify-promotion-chain.sh](scripts/verify-promotion-chain.sh) - Automated verification script
 - [GitHub Attestations Docs](https://docs.github.com/en/actions/security-guides/using-artifact-attestations)
-

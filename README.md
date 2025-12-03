@@ -105,6 +105,7 @@ This template implements comprehensive supply chain security with GitHub attesta
 ### What Are Attestations?
 
 Attestations provide cryptographic proof that your package was:
+
 - ✅ Built in a trusted GitHub Actions environment
 - ✅ Created from a specific commit and workflow
 - ✅ Signed with Sigstore (tamper-proof)
@@ -151,6 +152,7 @@ Complete attestation documentation is available:
 ### How It Works
 
 The workflow:
+
 1. Creates and publishes package to JFrog
 2. **Downloads the published package** (ensures exact hash match)
 3. Attests the downloaded package with GitHub

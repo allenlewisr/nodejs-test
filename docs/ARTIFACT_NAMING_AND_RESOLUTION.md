@@ -7,12 +7,14 @@ This project uses **standard npm package naming** for artifacts uploaded to JFro
 ## Naming Convention
 
 ### Package Artifacts
+
 - **Format**: `{package-name}-{version}.tgz`
 - **Example**: `nodejs-template-1.0.1.tgz`
 - ✅ Standard npm naming - works with `npm install`
 - ✅ Git SHA stored in properties for traceability
 
 ### Security Artifacts
+
 - **SARIF**: `{build-name}-codeql-{build-number}.sarif`
   - Example: `nodejs-test-codeql-123.sarif`
 - **SBOM**: `{build-name}-sbom-{build-number}.json`
@@ -23,6 +25,7 @@ This project uses **standard npm package naming** for artifacts uploaded to JFro
 Each artifact is tagged with the following properties for traceability:
 
 ### Package Properties
+
 ```properties
 # Git Information
 git.commit.sha=4c44b85f5cf080f95b708ac37ae2d9f268432dca
@@ -48,6 +51,7 @@ security.sbom.file=nodejs-test-sbom-123.json
 ```
 
 ### Security Artifact Properties (SARIF/SBOM)
+
 ```properties
 # Git Information
 git.commit.sha=4c44b85f5cf080f95b708ac37ae2d9f268432dca
@@ -252,17 +256,20 @@ jf rt search "nodejs-test-npm-local-dev/*.tgz" | \
 ## Best Practices
 
 ### For Developers
+
 1. **Install packages normally** using npm with JFrog configured
 2. **Use version numbers** from `package.json`, not SHAs
 3. **Check attestations** before using packages in production
 
 ### For DevOps/Security
+
 1. **Search by properties** to find artifacts by commit or build
 2. **Always verify attestations** in promotion workflows
 3. **Use build info API** for reliable artifact queries
 4. **Check security artifacts** (SARIF/SBOM) are linked
 
 ### For Auditors
+
 1. **Use git SHA** to find all artifacts from a specific commit
 2. **Verify promotion chain** using attestations
 3. **Check properties** for complete traceability
@@ -273,13 +280,16 @@ jf rt search "nodejs-test-npm-local-dev/*.tgz" | \
 If you have existing artifacts with SHA names (e.g., `package-1.0.0-abc123.tgz`):
 
 ### Option 1: Manual Installation
+
 ```bash
 jf rt download "repo/package-1.0.0-abc123.tgz" .
 npm install ./package-1.0.0-abc123.tgz
 ```
 
 ### Option 2: Copy During Promotion
+
 Add to promotion workflow:
+
 ```bash
 # Copy with standard name in new environment
 jf rt copy \
@@ -289,6 +299,7 @@ jf rt copy \
 ```
 
 ### Option 3: Re-release
+
 - Increment version (1.0.0 → 1.0.1)
 - Re-publish with standard naming
 - Mark old version as deprecated
@@ -296,6 +307,7 @@ jf rt copy \
 ## Troubleshooting
 
 ### Package Not Found by npm
+
 ```bash
 # Check repository configuration
 jf npm-config --repo-resolve=npm-remote
@@ -308,6 +320,7 @@ jf rt curl "/api/storage/nodejs-test-npm-local-dev/nodejs-template-1.0.1.tgz"
 ```
 
 ### Cannot Find Package by SHA
+
 ```bash
 # Search by short SHA (more lenient)
 jf rt search "*/*.tgz" --props="git.commit.short=4c44b85f"
@@ -317,6 +330,7 @@ jf rt search "*/*.tgz" --props="git.commit.sha=4c44b85f5cf080f95b708ac37ae2d9f26
 ```
 
 ### Missing Security Artifacts
+
 ```bash
 # Check if security repo exists
 jf rt curl "/api/repositories/nodejs-test-security-local"
@@ -332,4 +346,3 @@ jf rt curl "/api/storage/nodejs-test-npm-local-dev/nodejs-template-1.0.1.tgz" | 
 - [Promotion Guide](PROMOTION_ATTESTATION_GUIDE.md)
 - [Environment Setup](ENVIRONMENT_SETUP_INSTRUCTIONS.md)
 - [Bidirectional Artifact Linking](BIDIRECTIONAL_ARTIFACT_LINKING.md)
-

@@ -5,6 +5,7 @@
 ### ❌ Error: 404 "Could not find package"
 
 **Why this happens:**
+
 - `gh attestation verify` expects packages to be in public npm registry
 - Your package is in JFrog Artifactory (private)
 - GitHub cannot fetch the package to compare with the attestation
@@ -12,6 +13,7 @@
 **Solutions:**
 
 #### Option 1: Verify Local File (Recommended for JFrog)
+
 ```bash
 # 1. Download from JFrog (note the npm path structure: package-name/-/tarball.tgz)
 jf rt download "nodejs-test-npm-local-dev/nodejs-template/-/nodejs-template-1.0.1.tgz" --flat
@@ -21,11 +23,13 @@ gh attestation verify nodejs-template-1.0.1.tgz --owner <your-github-org>
 ```
 
 #### Option 2: Use the Verification Script
+
 ```bash
 ./scripts/verify-attestation.sh nodejs-template-1.0.1.tgz
 ```
 
 #### Option 3: View Attestations on GitHub
+
 Visit: `https://github.com/<your-org>/nodejs-test/attestations`
 
 ---
@@ -33,11 +37,13 @@ Visit: `https://github.com/<your-org>/nodejs-test/attestations`
 ### ❌ Error: "No attestations found"
 
 **Possible causes:**
+
 1. Workflow hasn't run yet after the fix
 2. Attestation step failed (check workflow logs)
 3. Wrong owner/org specified
 
 **Check:**
+
 ```bash
 # List all attestations for the repo
 gh api repos/<owner>/nodejs-test/attestations
@@ -51,10 +57,12 @@ gh run view <run-id>
 ### ❌ Error: "Subject digest does not match"
 
 **Why this happens:**
+
 - Local file has been modified
 - Different version of the package
 
 **Solution:**
+
 ```bash
 # Delete and re-download from JFrog
 rm nodejs-template-1.0.1.tgz
@@ -67,11 +75,13 @@ gh attestation verify nodejs-template-1.0.1.tgz --owner <your-org>
 ### ❌ Error: "Could not find subject at path" (During Workflow)
 
 **Why this happens:**
+
 - The tarball was deleted before attestation step
 - This is fixed in the current workflow
 
 **The Fix (already implemented):**
 The workflow now saves a backup copy of the tarball before publishing:
+
 1. Creates tarball
 2. **Saves backup** ← prevents this error
 3. Publishes to JFrog (removes original)
@@ -85,16 +95,19 @@ The workflow now saves a backup copy of the tarball before publishing:
 When using `jf npm publish` (vs `jf rt upload`), packages are stored in npm-style paths:
 
 **npm publish path:**
+
 ```
 repo-name/package-name/-/package-name-1.0.0.tgz
 ```
 
 **Direct upload path:**
+
 ```
 repo-name/package-name-1.0.0.tgz
 ```
 
 **Example:**
+
 - Package: `nodejs-template@1.0.1`
 - Repo: `nodejs-test-npm-local-dev`
 - Path: `nodejs-test-npm-local-dev/nodejs-template/-/nodejs-template-1.0.1.tgz`
@@ -108,6 +121,7 @@ The workflow automatically handles this path structure when setting properties a
 ### For JFrog-hosted Packages (npm publish)
 
 Always download first, then verify. Note the npm path structure:
+
 ```bash
 # Complete verification flow (npm path structure: package-name/-/tarball.tgz)
 jf rt download "repo-name/package-name/-/package-1.0.0.tgz" --flat
@@ -121,6 +135,7 @@ gh attestation verify nodejs-template-1.0.1.tgz --owner allenlewisr
 ### For npm-hosted Packages
 
 Can verify directly (no download needed):
+
 ```bash
 gh attestation verify package-name@version --owner <org>
 ```
@@ -132,7 +147,7 @@ gh attestation verify package-name@version --owner <org>
   run: |
     # Download from JFrog
     jf rt download "$REPO/$TARBALL" --flat
-    
+
     # Verify
     gh attestation verify "$TARBALL" --owner "${{ github.repository_owner }}"
 ```
@@ -180,6 +195,7 @@ The attestation workflow creates **3 types of attestations**:
    - Software Bill of Materials attestation
 
 All attestations are:
+
 - ✅ Signed with Sigstore
 - ✅ Stored in GitHub
 - ✅ Linked to the package in JFrog (via properties)
@@ -193,4 +209,3 @@ All attestations are:
 - [Sigstore Documentation](https://docs.sigstore.dev/)
 - See `docs/ATTESTATION_WITH_NPM.md` for publishing to public npm
 - Use `scripts/verify-attestation.sh` for automated verification
-

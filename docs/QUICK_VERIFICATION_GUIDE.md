@@ -5,6 +5,7 @@
 ### Step 1: Check the Artifact Path in JFrog
 
 Your package will be at:
+
 ```
 nodejs-test-npm-local-dev/nodejs-template/-/nodejs-template-1.0.1.tgz
 ```
@@ -18,6 +19,7 @@ jf rt curl -XGET "/api/storage/nodejs-test-npm-local-dev/nodejs-template/-/nodej
 ```
 
 You should see properties like:
+
 - `git.commit.sha`
 - `attestation.provenance.bundle`
 - `attestation.actor.bundle`
@@ -81,7 +83,7 @@ NPM_ARTIFACT_PATH="${PACKAGE_NAME}/-/${TARBALL_NAME}"
 ✅ Attestations created in GitHub  
 ✅ Properties set on artifact in JFrog  
 ✅ SARIF and SBOM linked bidirectionally  
-✅ Verification succeeds  
+✅ Verification succeeds
 
 ## Troubleshooting
 
@@ -98,4 +100,3 @@ If verification still fails:
 - Full documentation: `docs/NPM_PUBLISH_ATTESTATION_FIX.md`
 - Troubleshooting: `docs/ATTESTATION_VERIFICATION_TROUBLESHOOTING.md`
 - Public npm: `docs/ATTESTATION_WITH_NPM.md`
-

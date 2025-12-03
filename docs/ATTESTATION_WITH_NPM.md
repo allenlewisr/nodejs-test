@@ -60,6 +60,7 @@ npm view nodejs-template attestations
 ## Dual Publishing Strategy
 
 You can publish to both:
+
 - **JFrog**: For internal/private consumption with full metadata
 - **Public npm**: For external users with automatic verification
 

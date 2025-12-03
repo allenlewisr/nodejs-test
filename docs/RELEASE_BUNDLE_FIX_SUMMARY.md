@@ -1,11 +1,13 @@
 # Release Bundle UI Issue - Fix Summary
 
 ## Problem Description
+
 Release bundles created by the workflows were causing the JFrog UI to continuously refresh, preventing users from viewing bundle contents. Additionally, the build-info contained multiple modules including an empty module named `packagename:version`.
 
 ## Root Causes Identified
 
 ### 1. Module Name Inconsistency (Primary Issue)
+
 - The `jf npm` commands (ci, lint, pack) were creating a module named `packagename:version` with no artifacts
 - The actual artifact upload used `--module=$BUILD_NAME`, creating a separate module
 - This resulted in 3 modules in build-info:
@@ -15,6 +17,7 @@ Release bundles created by the workflows were causing the JFrog UI to continuous
 - When the release bundle was created from this build-info, it included the empty module, causing UI loading failures
 
 ### 2. Repository Inclusion Mismatch
+
 - In `release-bundle.yml.bak`, the promotion command only included one repository (`JFROG_REPO_NAME`)
 - The security repository (`JFROG_SECURITY_REPO_NAME`) was missing from the promotion
 - This created an inconsistent bundle state where some artifacts weren't included in the promotion scope
@@ -22,11 +25,14 @@ Release bundles created by the workflows were causing the JFrog UI to continuous
 ## Solutions Implemented
 
 ### 1. Fixed Module Naming Consistency
+
 **Files Modified:**
+
 - `.github/workflows/unified-build.yml`
 - `.github/workflows/release-bundle.yml.bak`
 
 **Changes:**
+
 - Removed `--build-name` and `--build-number` from `jf npm ci` (line 98)
 - Removed `--build-name` and `--build-number` from `jf npm run lint` and `format:check` (lines 102-103)
 - Changed `jf npm pack` to `npm pack` (line 138) to prevent creating empty module entries
@@ -34,22 +40,28 @@ Release bundles created by the workflows were causing the JFrog UI to continuous
 **Result:** Build-info now only contains modules with actual artifacts, eliminating the empty module issue.
 
 ### 2. Added Build-Info Verification
+
 **Files Modified:**
+
 - `.github/workflows/unified-build.yml` (new step before bundle creation)
 - `.github/workflows/release-bundle.yml.bak` (new step before bundle creation)
 
 **New Step:** "Verify build-info before bundle creation"
+
 - Retrieves build-info via JFrog API
 - Lists all modules and their artifact counts
 - Validates that artifacts exist before attempting bundle creation
 - Fails early if no artifacts are found
 
 ### 3. Added Bundle Validation
+
 **Files Modified:**
+
 - `.github/workflows/unified-build.yml` (new step after bundle creation)
 - `.github/workflows/release-bundle.yml.bak` (new step after bundle creation)
 
 **New Step:** "Validate release bundle"
+
 - Retrieves bundle information via JFrog API
 - Checks bundle state (SIGNED/OPEN)
 - Verifies bundle contains artifacts
@@ -57,23 +69,29 @@ Release bundles created by the workflows were causing the JFrog UI to continuous
 - Fails if bundle contains no artifacts (prevents UI issues)
 
 ### 4. Added Repository Verification Before Promotion
+
 **Files Modified:**
+
 - `.github/workflows/unified-build.yml` (new step before promotion)
 - `.github/workflows/jfrog-promotion.yml` (new step before promotion)
 - `.github/workflows/release-bundle.yml.bak` (new step before promotion)
 
 **New Step:** "Verify repositories before promotion"
+
 - Checks that both npm and security repositories exist
 - Validates access to target repositories
 - Provides clear error messages if repositories are missing
 
 ### 5. Enhanced Promotion Commands with Error Handling
+
 **Files Modified:**
+
 - `.github/workflows/unified-build.yml` (line 394-396, now expanded with error handling)
 - `.github/workflows/jfrog-promotion.yml` (line 226-228, now expanded with error handling)
 - `.github/workflows/release-bundle.yml.bak` (line 284-286, fixed and expanded)
 
 **Changes:**
+
 - All promotion commands now explicitly include both repositories: `--include-repos "$JFROG_REPO_NAME;$JFROG_SECURITY_REPO_NAME"`
 - Added detailed logging before promotion (bundle, source stage, target environment, repositories)
 - Added error handling with troubleshooting steps
@@ -111,4 +129,3 @@ Release bundles created by the workflows were causing the JFrog UI to continuous
 - The linter warnings about "Context access might be invalid" are false positives - these are environment variables set dynamically during workflow execution
 - Both `unified-build.yml` and `release-bundle.yml.bak` have been updated with identical fixes
 - All promotion commands now use consistent repository lists across all workflows
-

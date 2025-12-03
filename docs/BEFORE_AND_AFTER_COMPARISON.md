@@ -9,6 +9,7 @@ When verifying attestations, GitHub looks up attestations by the **SHA256 digest
 ## ❌ BEFORE (Broken Approach)
 
 ### Flow Diagram
+
 ```
 ┌─────────────────────┐
 │   npm pack          │
@@ -47,6 +48,7 @@ When verifying attestations, GitHub looks up attestations by the **SHA256 digest
 ```
 
 ### Why Hashes Differ
+
 - Timestamps in tarball
 - Compression variations
 - npm publish processing
@@ -57,6 +59,7 @@ When verifying attestations, GitHub looks up attestations by the **SHA256 digest
 ## ✅ AFTER (Fixed Approach)
 
 ### Flow Diagram
+
 ```
 ┌─────────────────────┐
 │   npm pack          │
@@ -204,13 +207,13 @@ Loaded digest sha256:xyz789... for file://nodejs-template-1.0.1.tgz
 
 Attestation verified at:
   https://github.com/allenlewisr/nodejs-test/attestations
-  
+
 Details:
   Issued at: 2025-12-02T19:00:00Z
   Workflow: Build and Release
   Repository: allenlewisr/nodejs-test
   Commit: a1b2c3d...
-  
+
 # GitHub has attestation for: xyz789...
 # File digest is: xyz789...
 # Perfect match → success!
@@ -255,14 +258,14 @@ curl https://api.github.com/orgs/allenlewisr/attestations/sha256:xyz789abcdef...
 
 ## Summary Table
 
-| Aspect | Before (Broken) | After (Fixed) |
-|--------|----------------|---------------|
-| **Attest** | Local file | Published file from JFrog |
-| **Hash** | Might differ | Guaranteed to match |
-| **Verification** | ❌ 404 error | ✅ Success |
-| **Reliability** | ❌ Unpredictable | ✅ 100% reliable |
-| **Supply Chain** | ⚠️ Unverifiable | ✅ Fully verifiable |
-| **User Experience** | ❌ Frustrating | ✅ Just works |
+| Aspect              | Before (Broken)  | After (Fixed)             |
+| ------------------- | ---------------- | ------------------------- |
+| **Attest**          | Local file       | Published file from JFrog |
+| **Hash**            | Might differ     | Guaranteed to match       |
+| **Verification**    | ❌ 404 error     | ✅ Success                |
+| **Reliability**     | ❌ Unpredictable | ✅ 100% reliable          |
+| **Supply Chain**    | ⚠️ Unverifiable  | ✅ Fully verifiable       |
+| **User Experience** | ❌ Frustrating   | ✅ Just works             |
 
 ---
 
@@ -273,6 +276,7 @@ curl https://api.github.com/orgs/allenlewisr/attestations/sha256:xyz789abcdef...
 If users download from JFrog, attest the file FROM JFrog.
 
 This guarantees:
+
 1. ✅ Hash matches
 2. ✅ Verification succeeds
 3. ✅ Supply chain is proven
@@ -297,4 +301,3 @@ gh attestation verify nodejs-template-1.0.1.tgz --owner allenlewisr
 ```
 
 🎯 **Your question led to the perfect solution!**
-

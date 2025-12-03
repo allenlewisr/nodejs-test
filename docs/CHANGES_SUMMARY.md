@@ -15,9 +15,9 @@ Attestation verification was failing with **404 errors** because:
 
 **NPM repositories use a different path structure** than generic repositories:
 
-| Method | Path Structure |
-|--------|---------------|
-| `jf rt upload` | `repo/package-1.0.0.tgz` |
+| Method           | Path Structure                     |
+| ---------------- | ---------------------------------- |
+| `jf rt upload`   | `repo/package-1.0.0.tgz`           |
 | `jf npm publish` | `repo/package/-/package-1.0.0.tgz` |
 
 The `/-/` directory is part of the npm registry specification.
@@ -27,11 +27,13 @@ The `/-/` directory is part of the npm registry specification.
 ### 1. `.github/workflows/unified-build.yml`
 
 **Lines 125-138:** Added npm artifact path calculation
+
 ```yaml
 NPM_ARTIFACT_PATH="${PACKAGE_NAME}/-/${TARBALL_NAME}"
 ```
 
 **Lines 158-180:** **KEY FIX** - Download and attest the published package
+
 ```yaml
 # Old approach: backup → publish → restore → attest local file
 # New approach: publish → download from JFrog → attest published file
@@ -51,16 +53,19 @@ NPM_ARTIFACT_PATH="${PACKAGE_NAME}/-/${TARBALL_NAME}"
 ```
 
 **Line ~203:** Updated main attestation metadata path
+
 ```yaml
 ARTIFACT_PATH="${{ env.JFROG_REPO_NAME }}/${{ env.NPM_ARTIFACT_PATH }}"
 ```
 
 **Line ~278:** Updated SARIF linking path
+
 ```yaml
 ARTIFACT_PATH="${{ env.JFROG_REPO_NAME }}/${{ env.NPM_ARTIFACT_PATH }}"
 ```
 
 **Line ~346:** Updated SBOM linking path
+
 ```yaml
 ARTIFACT_PATH="${{ env.JFROG_REPO_NAME }}/${{ env.NPM_ARTIFACT_PATH }}"
 ```
@@ -84,6 +89,7 @@ ARTIFACT_PATH="${{ env.JFROG_REPO_NAME }}/${{ env.NPM_ARTIFACT_PATH }}"
 ### 1. Run the Workflow
 
 Trigger the workflow on your `release/1.0.0` branch:
+
 ```bash
 git push origin release/1.0.0
 ```
@@ -91,6 +97,7 @@ git push origin release/1.0.0
 ### 2. After Workflow Completes
 
 Check that properties were set:
+
 ```bash
 jf rt curl -XGET "/api/storage/nodejs-test-npm-local-dev/nodejs-template/-/nodejs-template-1.0.1.tgz?properties"
 ```
@@ -137,6 +144,7 @@ Attestation verified for: nodejs-template-1.0.1.tgz
 ## Additional Benefits
 
 Using `jf npm publish` provides:
+
 - ✅ Proper npm registry structure
 - ✅ Package metadata management
 - ✅ Version management
@@ -181,6 +189,7 @@ New: npm pack → publish → download → attest (hash guaranteed to match)
 ## Workflow Actions
 
 The workflow now:
+
 1. ✅ Creates tarball with `npm pack`
 2. ✅ Publishes to JFrog with `jf npm publish`
 3. ✅ **Downloads published package from JFrog** ← KEY FIX #1
@@ -190,4 +199,3 @@ The workflow now:
 7. ✅ Publishes build info
 
 All attestations are now for the exact file in JFrog with matching hashes!
-

@@ -3,11 +3,13 @@
 ## What You Have Now ✅
 
 ### Current Bundle File
+
 `sha256:6acb2e3ac756c5aeb3504aff8ef3ada13033165a6d3003713084ad3e41874132.jsonl`
 
 This bundle contains **2 build attestations** from your recent build (Run #19861723295):
 
 #### 1. Actor Attestation
+
 - **Type:** `https://github.com/attestation/actor/v1`
 - **Subject:** `nodejs-template-1.0.1.tgz`
 - **Actor:** `allenlewis32` (ID: 40535590)
@@ -17,6 +19,7 @@ This bundle contains **2 build attestations** from your recent build (Run #19861
 - **Rekor Log Index:** 736740379
 
 #### 2. Provenance Attestation (SLSA)
+
 - **Type:** `https://slsa.dev/provenance/v1`
 - **Subject:** `nodejs-template-1.0.1.tgz`
 - **Builder:** `unified-build.yml@release/1.0.0`
@@ -24,6 +27,7 @@ This bundle contains **2 build attestations** from your recent build (Run #19861
 - **Rekor Log Index:** 736740352
 
 Both attestations are:
+
 - ✅ Signed with Sigstore (keyless signing)
 - ✅ Recorded in Rekor transparency log
 - ✅ Valid certificates (10-minute expiry - standard for keyless)
@@ -33,14 +37,14 @@ Both attestations are:
 
 ### Promotion Attestations vs Build Attestations
 
-| Aspect | Build Attestations | Promotion Attestations |
-|--------|-------------------|----------------------|
-| **Created by** | `unified-build.yml` workflow | `jfrog-promotion.yml` workflow |
-| **When** | During build/publish | During environment promotion |
-| **Subject** | Artifact file (.tgz) | Release bundle identifier |
-| **Predicate Type** | `actor/v1`, `provenance/v1` | `promotion/v1` |
-| **Contains** | Who built, how built | Who promoted, who approved |
-| **Purpose** | Prove artifact provenance | Prove promotion authorization |
+| Aspect             | Build Attestations           | Promotion Attestations         |
+| ------------------ | ---------------------------- | ------------------------------ |
+| **Created by**     | `unified-build.yml` workflow | `jfrog-promotion.yml` workflow |
+| **When**           | During build/publish         | During environment promotion   |
+| **Subject**        | Artifact file (.tgz)         | Release bundle identifier      |
+| **Predicate Type** | `actor/v1`, `provenance/v1`  | `promotion/v1`                 |
+| **Contains**       | Who built, how built         | Who promoted, who approved     |
+| **Purpose**        | Prove artifact provenance    | Prove promotion authorization  |
 
 ### How to Get Promotion Attestations
 
@@ -54,6 +58,7 @@ gh workflow run jfrog-promotion.yml \
 ```
 
 The workflow will:
+
 1. ✅ Get approvers from GitHub environment
 2. ✅ Calculate bundle digest
 3. ✅ Create promotion attestation
@@ -63,15 +68,18 @@ The workflow will:
 ## How to View All Attestations 🔍
 
 ### Web Interface (Easiest)
+
 Visit: **https://github.com/allenlewisr/nodejs-test/attestations**
 
 You'll see:
+
 - All attestations for your repository
 - Filter by predicate type
 - Download individual bundles
 - View attestation details
 
 ### Command Line
+
 ```bash
 # Using the inspection script (included)
 ./scripts/inspect-attestation.sh <bundle-file>.jsonl
@@ -86,11 +94,13 @@ gh api repos/allenlewisr/nodejs-test/attestations
 ## Verification Tools 🛠️
 
 ### 1. Inspect Attestation Bundle
+
 ```bash
 ./scripts/inspect-attestation.sh sha256:6acb2e3ac756c5aeb3504aff8ef3ada13033165a6d3003713084ad3e41874132.jsonl
 ```
 
 Shows:
+
 - All attestations in the bundle
 - Subject and digest
 - Predicate type and content
@@ -98,6 +108,7 @@ Shows:
 - Rekor log details
 
 ### 2. Verify Promotion Chain
+
 ```bash
 ./scripts/verify-promotion-chain.sh \
   --bundle-name nodejs-test \
@@ -108,11 +119,13 @@ Shows:
 ```
 
 Checks:
+
 - JFrog promotion history
 - GitHub attestations
 - Complete audit trail
 
 ### 3. Verify Specific Attestation
+
 ```bash
 # For build attestations (with artifact file)
 gh attestation verify nodejs-template-1.0.1.tgz \
@@ -127,6 +140,7 @@ gh attestation verify \
 ## Quick Reference 📚
 
 ### Files You Have
+
 - ✅ `sha256:6acb2e3ac756c5aeb3504aff8ef3ada13033165a6d3003713084ad3e41874132.jsonl` - Build attestations
 - ✅ `scripts/inspect-attestation.sh` - Inspection tool
 - ✅ `scripts/verify-promotion-chain.sh` - Chain verification tool
@@ -136,6 +150,7 @@ gh attestation verify \
 ### What Each Attestation Proves
 
 **Build Attestations (What You Have):**
+
 ```
 ✓ Who triggered the build: allenlewis32
 ✓ What triggered it: push to release/1.0.0
@@ -146,6 +161,7 @@ gh attestation verify \
 ```
 
 **Promotion Attestations (Created During Promotion):**
+
 ```
 ✓ Who triggered promotion: [username]
 ✓ Who approved promotion: [comma-separated approvers]
@@ -159,6 +175,7 @@ gh attestation verify \
 ## Next Steps 🚀
 
 ### 1. View Your Current Attestations
+
 ```bash
 # Open in browser
 open https://github.com/allenlewisr/nodejs-test/attestations
@@ -168,6 +185,7 @@ open https://github.com/allenlewisr/nodejs-test/attestations
 ```
 
 ### 2. Run a Promotion (to create promotion attestations)
+
 ```bash
 # Promote to QA
 gh workflow run jfrog-promotion.yml \
@@ -179,6 +197,7 @@ gh workflow run jfrog-promotion.yml \
 ```
 
 ### 3. Verify the Complete Chain
+
 ```bash
 # After promotion runs
 ./scripts/verify-promotion-chain.sh \
@@ -214,20 +233,26 @@ open https://github.com/allenlewisr/nodejs-test/attestations
 ## Troubleshooting 🔧
 
 ### Can't Verify with gh CLI
+
 If you see certificate or verification errors:
+
 - Use the inspection script instead: `./scripts/inspect-attestation.sh`
 - View on GitHub web interface (most reliable)
 - Manually inspect with jq
 
 ### No Promotion Attestations
+
 If you don't see promotion attestations:
+
 - They're only created when you run `jfrog-promotion.yml`
 - Check workflow logs for errors
 - Ensure workflow has `attestations: write` permission
 - Verify the attestation step completed successfully
 
 ### Bundle File Location
+
 After promotion workflow runs, find bundle path in logs:
+
 ```bash
 gh run view <run-id> --log | grep "Attestation bundle:"
 ```
@@ -243,6 +268,7 @@ Each attestation in your bundle has:
 5. **Checkpoint** - Signed tree head from Rekor
 
 This creates a cryptographically verifiable chain proving:
+
 - The attestation came from your GitHub Actions
 - It was created at a specific time
 - It hasn't been tampered with
@@ -269,4 +295,3 @@ This creates a cryptographically verifiable chain proving:
 **Status:** ✅ Build attestations verified and documented  
 **Next:** Run a promotion workflow to create promotion attestations  
 **Tools:** Inspection and verification scripts ready to use
-

@@ -9,15 +9,18 @@ This directory contains two shell scripts for verifying attestations and display
 Verifies artifact attestations and displays actor information.
 
 **Usage:**
+
 ```bash
 ./verify-artifact-attestation.sh <artifact_path> <jfrog_repo_name>
 ```
 
 **Parameters:**
+
 - `artifact_path` - Full artifact path (e.g., `nodejs-template/-/nodejs-template-1.0.1.tgz`)
 - `jfrog_repo_name` - JFrog repository name (e.g., `nodejs-test-npm-local-dev`)
 
 **Example:**
+
 ```bash
 ./scripts/verify-artifact-attestation.sh \
   "nodejs-template/-/nodejs-template-1.0.1.tgz" \
@@ -25,6 +28,7 @@ Verifies artifact attestations and displays actor information.
 ```
 
 **What it does:**
+
 1. Downloads the artifact from JFrog
 2. Verifies the attestation using GitHub
 3. Extracts and displays actor information:
@@ -38,6 +42,7 @@ Verifies artifact attestations and displays actor information.
    - Timestamp
 
 **Output Example:**
+
 ```
 === Artifact Attestation - Actor Information ===
 Actor:           allenlewis32
@@ -57,15 +62,18 @@ Timestamp:       2025-12-02T19:47:01+05:30
 Displays release bundle promotion history with approval details.
 
 **Usage:**
+
 ```bash
 ./show-bundle-promotions.sh <bundle_name> [bundle_version]
 ```
 
 **Parameters:**
+
 - `bundle_name` - Release bundle name (required)
 - `bundle_version` - Bundle version (optional, defaults to latest)
 
 **Examples:**
+
 ```bash
 # Use specific version
 ./scripts/show-bundle-promotions.sh "nodejs-test" "1.0.1+build.1"
@@ -75,6 +83,7 @@ Displays release bundle promotion history with approval details.
 ```
 
 **What it does:**
+
 1. Retrieves the bundle version (uses latest if not specified)
 2. Fetches promotion records from JFrog
 3. Displays promotion history in a formatted table:
@@ -85,12 +94,13 @@ Displays release bundle promotion history with approval details.
 4. Shows the complete promotion path
 
 **Output Example:**
+
 ```
 === Release Bundle Promotion History ===
 Bundle: nodejs-test
 Version: 1.0.1+build.1
 
-Environment     Status          Created By           Timestamp           
+Environment     Status          Created By           Timestamp
 ───────────────────────────────────────────────────────────────────────────
 DEV             COMPLETED       allenlewis32         2025-12-02 14:30:00
 QA              COMPLETED       allenlewis32         2025-12-02 15:45:00
@@ -154,16 +164,19 @@ gh auth login
 ## Troubleshooting
 
 ### Attestation Verification Fails
+
 - Ensure the artifact has been attested (check GitHub attestations page)
 - Verify you're using the correct GitHub owner (`allenlewisr`)
 - Check that the artifact path follows npm structure with `/-/` separator
 
 ### Bundle Not Found
+
 - Verify the bundle name matches exactly (case-sensitive)
 - Check that the bundle version exists in JFrog
 - Ensure JFrog CLI is properly configured with correct permissions
 
 ### Missing Dependencies
+
 - Run the prerequisite installation commands above
 - Verify tools are in your PATH: `which jf gh jq`
 
@@ -174,4 +187,3 @@ gh auth login
 - [START_HERE.md](../docs/START_HERE.md) - Overview of attestation system
 - [QUICK_VERIFICATION_GUIDE.md](../docs/QUICK_VERIFICATION_GUIDE.md) - Quick verification steps
 - [VERIFY_PROMOTION_ATTESTATION.md](../docs/VERIFY_PROMOTION_ATTESTATION.md) - Promotion attestation details
-

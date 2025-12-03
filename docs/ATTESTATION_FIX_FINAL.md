@@ -45,6 +45,7 @@ verification succeeds! (digest matches: xyz789... = xyz789...)
 ## What Changed in the Workflow
 
 ### Before (Broken)
+
 ```yaml
 - name: Create package tarball
   run: jf npm pack
@@ -61,10 +62,11 @@ verification succeeds! (digest matches: xyz789... = xyz789...)
 - name: Attest
   uses: actions/attest-build-provenance@v3
   with:
-    subject-path: tarball.tgz  # ❌ Local file, might not match JFrog
+    subject-path: tarball.tgz # ❌ Local file, might not match JFrog
 ```
 
 ### After (Fixed)
+
 ```yaml
 - name: Create package tarball
   run: jf npm pack
@@ -80,7 +82,7 @@ verification succeeds! (digest matches: xyz789... = xyz789...)
 - name: Attest
   uses: actions/attest-build-provenance@v3
   with:
-    subject-path: tarball.tgz  # ✅ Exact file from JFrog
+    subject-path: tarball.tgz # ✅ Exact file from JFrog
 ```
 
 ## Why This Works
@@ -95,6 +97,7 @@ verification succeeds! (digest matches: xyz789... = xyz789...)
 We also fixed the **npm path structure** issue:
 
 ### NPM Repository Paths
+
 ```
 Generic upload:  repo/package-1.0.0.tgz
 NPM publish:     repo/package/-/package-1.0.0.tgz
@@ -102,6 +105,7 @@ NPM publish:     repo/package/-/package-1.0.0.tgz
 ```
 
 The workflow now:
+
 - ✅ Calculates correct npm path: `package/-/tarball.tgz`
 - ✅ Downloads from correct path
 - ✅ Sets properties at correct path
@@ -110,6 +114,7 @@ The workflow now:
 ## Testing the Fix
 
 ### 1. Trigger Workflow
+
 ```bash
 git push origin release/1.0.0
 ```
@@ -117,6 +122,7 @@ git push origin release/1.0.0
 ### 2. Wait for Workflow to Complete
 
 Check the logs for:
+
 ```
 ✓ Published package downloaded for attestation
 Package SHA256: abc123...
@@ -152,14 +158,17 @@ Commit: ...
 ## Why Previous Attempts Failed
 
 ### Attempt 1: jf rt upload
+
 - ✅ Worked because simple flat path structure
 - ❌ Loses npm-specific features
 
 ### Attempt 2: jf npm publish + backup/restore
+
 - ❌ Still attesting local file, not published file
 - ❌ Hash mismatch possible
 
 ### Attempt 3: jf npm publish + download + attest ✅
+
 - ✅ Attests exact published file
 - ✅ Hash guaranteed to match
 - ✅ Uses proper npm structure
@@ -168,21 +177,25 @@ Commit: ...
 ## Benefits of This Approach
 
 ### 1. Reliable Verification
+
 - Hash always matches
 - No more 404 errors
 - Works every time
 
 ### 2. Supply Chain Security
+
 - Proves exact file in JFrog was built by GitHub Actions
 - Tamper-proof with Sigstore
 - Verifiable by anyone
 
 ### 3. NPM Best Practices
+
 - Uses proper npm repository structure
 - Compatible with npm clients
 - Supports npm-specific operations
 
 ### 4. Simpler Workflow
+
 - No backup/restore logic
 - Clearer intent
 - Easier to maintain
@@ -190,11 +203,13 @@ Commit: ...
 ## Complete File List
 
 ### Modified Files
+
 - ✅ `.github/workflows/unified-build.yml` - Main workflow fix
 - ✅ `scripts/verify-attestation.sh` - Updated for npm paths
 - ✅ `docs/ATTESTATION_VERIFICATION_TROUBLESHOOTING.md` - Updated examples
 
 ### New Documentation
+
 - ✅ `docs/ATTEST_PUBLISHED_PACKAGE.md` - Why we attest published packages
 - ✅ `docs/NPM_PUBLISH_ATTESTATION_FIX.md` - Technical details
 - ✅ `QUICK_VERIFICATION_GUIDE.md` - Quick reference
@@ -221,6 +236,7 @@ The solution was indeed to **attest the published package** rather than the loca
 ## Support
 
 If you still encounter issues:
+
 1. Check workflow logs for the SHA256 output
 2. Compare with downloaded file's hash
 3. Ensure using correct npm path structure
@@ -229,4 +245,3 @@ If you still encounter issues:
 ---
 
 **The fix is complete and ready to test!** 🚀
-

@@ -3,16 +3,19 @@
 ## TL;DR - What You Can Do Right Now
 
 ### 1. Inspect Your Current Build Attestations
+
 ```bash
 ./scripts/inspect-attestation.sh sha256:6acb2e3ac756c5aeb3504aff8ef3ada13033165a6d3003713084ad3e41874132.jsonl
 ```
 
 ### 2. View All Attestations Online
+
 ```bash
 open https://github.com/allenlewisr/nodejs-test/attestations
 ```
 
 ### 3. Create a Promotion Attestation
+
 ```bash
 # This will create a promotion attestation when you run it
 gh workflow run jfrog-promotion.yml \
@@ -25,17 +28,17 @@ gh workflow run jfrog-promotion.yml \
 Your file `sha256:6acb2e3ac756c5aeb3504aff8ef3ada13033165a6d3003713084ad3e41874132.jsonl` contains:
 
 ✅ **Actor Attestation** - Proves `allenlewis32` built this at 2025-12-02T19:47:01  
-✅ **Provenance Attestation** - Proves it was built by `unified-build.yml` workflow  
+✅ **Provenance Attestation** - Proves it was built by `unified-build.yml` workflow
 
 Both are cryptographically signed and recorded in Sigstore's transparency log.
 
 ## The Difference
 
-| Build Attestations | Promotion Attestations |
-|-------------------|----------------------|
-| You have these now ✅ | Created during promotion ⏳ |
-| Prove who built it | Prove who promoted and approved |
-| For artifact files | For release bundles |
+| Build Attestations             | Promotion Attestations           |
+| ------------------------------ | -------------------------------- |
+| You have these now ✅          | Created during promotion ⏳      |
+| Prove who built it             | Prove who promoted and approved  |
+| For artifact files             | For release bundles              |
 | Created by `unified-build.yml` | Created by `jfrog-promotion.yml` |
 
 ## Tools You Have
@@ -49,6 +52,7 @@ Both are cryptographically signed and recorded in Sigstore's transparency log.
 ### To See a Promotion Attestation:
 
 1. **Run a promotion:**
+
    ```bash
    gh workflow run jfrog-promotion.yml -f target_env=QA -f release_bundle_version=1.0.1+build.1
    ```
@@ -56,21 +60,24 @@ Both are cryptographically signed and recorded in Sigstore's transparency log.
 2. **Wait for it to complete**
 
 3. **View the attestation:**
+
    ```bash
    open https://github.com/allenlewisr/nodejs-test/attestations
    ```
-   
+
    Look for predicate type: `https://github.com/attestation/promotion/v1`
 
 ### To Download a Promotion Attestation Bundle:
 
 After a promotion runs, check the workflow logs:
+
 ```bash
 gh run list --workflow=jfrog-promotion.yml --limit 1
 gh run view <run-id> --log | grep "Attestation bundle:"
 ```
 
 The bundle path will be printed in the logs. You can then inspect it:
+
 ```bash
 ./scripts/inspect-attestation.sh <promotion-bundle-path>.jsonl
 ```
@@ -134,7 +141,7 @@ Predicate Content:
 ---
 
 **Ready to start?** Run the inspection script on your existing bundle:
+
 ```bash
 ./scripts/inspect-attestation.sh sha256:6acb2e3ac756c5aeb3504aff8ef3ada13033165a6d3003713084ad3e41874132.jsonl
 ```
-
