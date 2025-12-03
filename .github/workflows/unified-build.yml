@@ -69,6 +69,8 @@ jobs:
           BUILD_NAME_VALUE="${{ github.event.repository.name }}"
         fi
         echo "BUILD_NAME=${BUILD_NAME_VALUE}" >> $GITHUB_ENV
+        echo "JFROG_CLI_BUILD_NAME=${BUILD_NAME_VALUE}" >> $GITHUB_ENV
+        echo "JFROG_CLI_BUILD_NUMBER=${{ github.run_number }}" >> $GITHUB_ENV
         echo "build_name=${BUILD_NAME_VALUE}" >> $GITHUB_OUTPUT
 
         if [ -n "${{ env.JFROG_REPO_NAME }}" ]; then
@@ -392,6 +394,8 @@ jobs:
     - name: Set build environment from build job
       run: |
         echo "BUILD_NAME=${{ needs.build.outputs.build_name }}" >> $GITHUB_ENV
+        echo "JFROG_CLI_BUILD_NAME=${{ needs.build.outputs.build_name }}" >> $GITHUB_ENV
+        echo "JFROG_CLI_BUILD_NUMBER=${{ github.run_number }}" >> $GITHUB_ENV
         echo "JFROG_REPO_NAME=${{ needs.build.outputs.jfrog_repo_name }}" >> $GITHUB_ENV
         echo "JFROG_SECURITY_REPO_NAME=${{ needs.build.outputs.jfrog_security_repo_name }}" >> $GITHUB_ENV
 
