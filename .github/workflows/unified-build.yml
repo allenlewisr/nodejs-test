@@ -196,7 +196,6 @@ jobs:
           {
             "actor": "${{ github.actor }}",
             "actorId": "${{ github.actor_id }}",
-            "triggeredBy": "${{ github.event_name }}",
             "repository": "${{ github.repository }}",
             "repositoryOwner": "${{ github.repository_owner }}",
             "commit": "${{ github.sha }}",
