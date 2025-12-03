@@ -138,61 +138,13 @@ echo ""
 
 # Verify attestation and get JSON output
 info "Retrieving attestation details..."
-ATTESTATION_JSON=$(gh attestation verify "$ARTIFACT_FILE" --owner "$GITHUB_OWNER" --format json 2>/dev/null || echo "")
+ATTESTATION_JSON=$(gh attestation verify "$ARTIFACT_FILE" --owner "$GITHUB_OWNER" --predicate-type "https://github.com/attestation/actor/v1" --format json 2>/dev/null || echo "")
 
 if [ -z "$ATTESTATION_JSON" ]; then
     error "Failed to retrieve attestation JSON"
 fi
 
-# The attestation JSON contains the verification results
-# We need to look for the actor attestation in the verifications array
-ACTOR_PREDICATE=$(echo "$ATTESTATION_JSON" | jq -r '
-    .verifications[]? 
-    | select(.predicateType? // .statement?.predicateType? | contains("actor"))
-    | .statement?.predicate? // .predicate?
-    | select(. != null)
-' | head -n 1)
-
-# If not found in verifications, try the bundle directly
-if [ -z "$ACTOR_PREDICATE" ] || [ "$ACTOR_PREDICATE" = "null" ]; then
-    info "Extracting from attestation bundle..."
-    
-    # Get the bundle path from the verification
-    BUNDLE_PATH=$(echo "$ATTESTATION_JSON" | jq -r '.verifications[0]?.signature? // empty' | grep -o 'sha256:[a-f0-9]*\.jsonl' || echo "")
-    
-    if [ -n "$BUNDLE_PATH" ]; then
-        # Try to read the bundle if it exists locally or download it
-        if [ -f "$BUNDLE_PATH" ]; then
-            ACTOR_PREDICATE=$(cat "$BUNDLE_PATH" | jq -r '
-                select(.dsseEnvelope.payload != null)
-                | .dsseEnvelope.payload
-            ' | base64 -d 2>/dev/null | jq -r '
-                select(.predicateType | contains("actor"))
-                | .predicate
-            ' | head -n 1)
-        fi
-    fi
-fi
-
-# Alternative: Parse from the raw attestation output
-if [ -z "$ACTOR_PREDICATE" ] || [ "$ACTOR_PREDICATE" = "null" ]; then
-    # Try to extract from statement directly
-    ACTOR_PREDICATE=$(echo "$ATTESTATION_JSON" | jq -r '
-        .verifications[]?.statement?
-        | select(.predicateType | contains("actor"))
-        | .predicate
-    ' | head -n 1)
-fi
-
-if [ -z "$ACTOR_PREDICATE" ] || [ "$ACTOR_PREDICATE" = "null" ] || [ "$ACTOR_PREDICATE" = "" ]; then
-    echo -e "${YELLOW}⚠️  Warning: Could not extract actor predicate from attestation${NC}"
-    echo ""
-    info "Displaying all available attestation information:"
-    echo "$ATTESTATION_JSON" | jq -r '.verifications[]? | {predicateType: (.predicateType? // .statement?.predicateType?), predicate: (.predicate? // .statement?.predicate?)}' | head -20
-    echo ""
-    info "Note: The attestation exists and is valid, but actor information may not be available."
-    exit 0
-fi
+ACTOR_PREDICATE=$(echo "$ATTESTATION_JSON" | jq -r '.[].attestation.bundle.dsseEnvelope.payload' | base64 -d | jq -r '.predicate')
 
 # Step 4: Display actor information
 echo ""
@@ -204,7 +156,6 @@ echo ""
 # Parse and display actor information
 ACTOR=$(echo "$ACTOR_PREDICATE" | jq -r '.actor // "N/A"')
 ACTOR_ID=$(echo "$ACTOR_PREDICATE" | jq -r '.actorId // "N/A"')
-TRIGGERED_BY=$(echo "$ACTOR_PREDICATE" | jq -r '.triggeredBy // "N/A"')
 REPOSITORY=$(echo "$ACTOR_PREDICATE" | jq -r '.repository // "N/A"')
 COMMIT=$(echo "$ACTOR_PREDICATE" | jq -r '.commit // "N/A"')
 WORKFLOW=$(echo "$ACTOR_PREDICATE" | jq -r '.workflow // "N/A"')
@@ -214,7 +165,6 @@ TIMESTAMP=$(echo "$ACTOR_PREDICATE" | jq -r '.timestamp // "N/A"')
 
 printf "%-20s %s\n" "Actor:" "$ACTOR"
 printf "%-20s %s\n" "Actor ID:" "$ACTOR_ID"
-printf "%-20s %s\n" "Triggered By:" "$TRIGGERED_BY"
 printf "%-20s %s\n" "Repository:" "$REPOSITORY"
 printf "%-20s %s\n" "Commit:" "$COMMIT"
 printf "%-20s %s\n" "Workflow:" "$WORKFLOW"
