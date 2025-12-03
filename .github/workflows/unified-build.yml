@@ -465,10 +465,6 @@ jobs:
         echo ""
         echo "✓ Release bundle created successfully"
 
-    - name: Promote release bundle to dev
-      run: |
-        jf rbp --include-repos "${{ env.JFROG_REPO_NAME }};${{ env.JFROG_SECURITY_REPO_NAME }}" ${{ env.BUILD_NAME}} ${{ env.BUNDLE_VERSION }} DEV
-
     - name: Calculate bundle digest for attestation
       id: bundle-digest
       run: |
@@ -495,6 +491,21 @@ jobs:
       env:
         GH_TOKEN: ${{ github.token }}
 
+    - name: Promote release bundle to dev
+      run: |
+        jf rbp \
+          --include-repos "${{ env.JFROG_REPO_NAME }};${{ env.JFROG_SECURITY_REPO_NAME }}" \
+          ${{ env.BUILD_NAME}} \
+          ${{ env.BUNDLE_VERSION }} \
+          DEV
+
+    - name: Get promotion timestamp from JFrog evidence
+      id: get-promotion-timestamp
+      run: |
+        PROMOTION_TIMESTAMP=$(jf evd get --release-bundle ${{ env.BUILD_NAME }} --release-bundle-version ${{ env.BUNDLE_VERSION }} | jq -r '.result.evidence.[].createdAt' | tail -n 1)
+        echo "promotion_timestamp=${PROMOTION_TIMESTAMP}" >> $GITHUB_OUTPUT
+        echo "Promotion timestamp: ${PROMOTION_TIMESTAMP}"
+
     - name: Create initial promotion attestation
       id: attest-promotion
       uses: actions/attest@v2
@@ -518,9 +529,18 @@ jobs:
             "workflowRunId": "${{ github.run_id }}",
             "workflowRunNumber": "${{ github.run_number }}",
             "workflowRunAttempt": "${{ github.run_attempt }}",
-            "timestamp": "${{ github.event.head_commit.timestamp }}",
+            "timestamp": "${{ steps.get-promotion-timestamp.outputs.promotion_timestamp }}",
             "verificationUrl": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           }
+
+    - name: Update release bundle properties with attestation
+      run: |
+        # Update the promoted artifacts with attestation metadata
+        jf rt set-props \
+          "${{ env.JFROG_REPO_NAME }}/*" \
+          --include-dirs \
+          --build "${{ env.BUILD_NAME }}/${{ github.run_number }}" \
+          "promotion.source=BUILD;promotion.target=DEV;promotion.actor=${{ github.actor }};promotion.actor.id=${{ github.actor_id }};promotion.approver=${{ steps.get-approvers.outputs.approvers }};promotion.timestamp=${{ steps.get-promotion-timestamp.outputs.promotion_timestamp }};git.commit.sha=${{ github.sha }};git.branch=${{ github.ref_name }};workflow.run.id=${{ github.run_id }};workflow.run.number=${{ github.run_number }};attestation.bundle.path=${{ steps.attest-promotion.outputs.bundle-path }}"
 
     - name: Log promotion attestation
       run: |

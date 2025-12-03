@@ -223,10 +223,6 @@ jobs:
       env:
         GH_TOKEN: ${{ github.token }}
 
-    - name: Promote release bundle to ${inputs.target_env}
-      run: |
-        jf rbp --include-repos "${{ env.JFROG_REPO_NAME }};${{ env.JFROG_SECURITY_REPO_NAME }}" ${{ env.RELEASE_BUNDLE_NAME}} ${{ inputs.release_bundle_version }} ${{ inputs.target_env}}
-
     - name: Get source environment from promotion records
       id: get-source-env
       run: |
@@ -270,6 +266,21 @@ jobs:
         echo "Bundle digest: ${bundle_digest}"
         echo "Bundle subject: ${bundle_subject}"
 
+    - name: Promote release bundle to ${{ inputs.target_env }}
+      run: |
+        jf rbp \
+          --include-repos "${{ env.JFROG_REPO_NAME }};${{ env.JFROG_SECURITY_REPO_NAME }}" \
+          ${{ env.RELEASE_BUNDLE_NAME}} \
+          ${{ inputs.release_bundle_version }} \
+          ${{ inputs.target_env}}
+
+    - name: Get promotion timestamp from JFrog evidence
+      id: get-promotion-timestamp
+      run: |
+        PROMOTION_TIMESTAMP=$(jf evd get --release-bundle ${{ env.RELEASE_BUNDLE_NAME }} --release-bundle-version ${{ inputs.release_bundle_version }} | jq -r '.result.evidence.[].createdAt' | tail -n 1)
+        echo "promotion_timestamp=${PROMOTION_TIMESTAMP}" >> $GITHUB_OUTPUT
+        echo "Promotion timestamp: ${PROMOTION_TIMESTAMP}"
+
     - name: Create promotion attestation
       id: attest-promotion
       uses: actions/attest@v2
@@ -293,9 +304,23 @@ jobs:
             "workflowRunId": "${{ github.run_id }}",
             "workflowRunNumber": "${{ github.run_number }}",
             "workflowRunAttempt": "${{ github.run_attempt }}",
-            "timestamp": "${{ github.event.head_commit.timestamp }}",
+            "timestamp": "${{ steps.get-promotion-timestamp.outputs.promotion_timestamp }}",
             "verificationUrl": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           }
+
+    - name: Update release bundle properties with attestation
+      run: |
+        # Update the promoted artifacts with attestation metadata
+        # Get the list of artifacts in the promoted repositories
+        echo "Updating artifacts in ${{ env.JFROG_REPO_NAME }} with promotion metadata..."
+        
+        # Set properties on artifacts that match the bundle
+        jf rt set-props \
+          "${{ env.JFROG_REPO_NAME }}/*" \
+          --include-dirs \
+          "promotion.source=${{ steps.get-source-env.outputs.source_env }};promotion.target=${{ inputs.target_env }};promotion.actor=${{ github.actor }};promotion.actor.id=${{ github.actor_id }};promotion.approver=${{ steps.get-approvers.outputs.approvers }};promotion.timestamp=${{ steps.get-promotion-timestamp.outputs.promotion_timestamp }};workflow.run.id=${{ github.run_id }};workflow.run.number=${{ github.run_number }};attestation.bundle.path=${{ steps.attest-promotion.outputs.bundle-path }}"
+        
+        echo "✓ Promotion properties updated on artifacts"
 
     - name: Store attestation metadata in JFrog
       run: |
