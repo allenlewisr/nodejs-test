@@ -159,18 +159,24 @@ jobs:
 
     - name: Publish to JFrog Artifactory
       run: |
-        # Upload using rt upload to control module name, but use npm path structure
-        # This ensures the package is recognized as npm type in JFrog
-        jf rt upload "${{ env.TARBALL_PATH }}" \
-          "${{ env.JFROG_REPO_NAME }}/${{ env.NPM_ARTIFACT_PATH }}" \
-          --build-name=${{ env.BUILD_NAME }} \
-          --build-number=${{ github.run_number }} \
-          --module=${{ env.BUILD_NAME }}
+        jf npm publish --build-name=${{ env.BUILD_NAME }} --build-number=${{ github.run_number }}
+
+    - name: Download published package for attestation
+      run: |
+        # Download the actual published package from JFrog for attestation
+        # This ensures we attest the exact file stored in JFrog
+        JFROG_ARTIFACT_PATH="${{ env.JFROG_REPO_NAME }}/${{ env.NPM_ARTIFACT_PATH }}"
+        echo "Downloading published package from: ${JFROG_ARTIFACT_PATH}"
         
-        echo "✓ Package uploaded to JFrog"
-        echo "  Repository: ${{ env.JFROG_REPO_NAME }}"
-        echo "  Path: ${{ env.NPM_ARTIFACT_PATH }}"
-        echo "  Module: ${{ env.BUILD_NAME }}"
+        jf rt download "${JFROG_ARTIFACT_PATH}" --flat
+        
+        if [ ! -f "${{ env.TARBALL_PATH }}" ]; then
+          echo "❌ Failed to download published package"
+          exit 1
+        fi
+        
+        echo "✓ Published package downloaded for attestation"
+        ls -lh ${{ env.TARBALL_PATH }}
         
         # Calculate and display the digest for verification
         DIGEST=$(sha256sum ${{ env.TARBALL_PATH }} | awk '{print $1}')
