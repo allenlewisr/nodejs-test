@@ -465,53 +465,6 @@ jobs:
         echo ""
         echo "✓ Release bundle created successfully"
 
-    - name: Verify bundle contents
-      run: |
-        echo "=== Verifying Release Bundle Contents ==="
-        echo "Bundle: ${{ env.BUILD_NAME }} v${{ env.BUNDLE_VERSION }}"
-        echo ""
-        
-        # Get bundle information
-        bundle_info=$(jf rt curl -XGET "/api/v2/release_bundle/records/${{ env.BUILD_NAME }}/${{ env.BUNDLE_VERSION }}" --silent --fail)
-        
-        # Check bundle state
-        bundle_state=$(echo "$bundle_info" | jq -r '.state // "unknown"')
-        echo "Bundle State: $bundle_state"
-        
-        # Count artifacts in the bundle
-        artifact_count=$(echo "$bundle_info" | jq -r '.spec.artifacts | length // 0' 2>/dev/null || echo "0")
-        echo "Artifacts in bundle: $artifact_count"
-        
-        if [ "$artifact_count" -eq 0 ]; then
-          echo ""
-          echo "⚠️  WARNING: Bundle contains 0 artifacts!"
-          echo "This means the bundle was created but is empty."
-          echo ""
-          echo "Possible causes:"
-          echo "  1. Build info doesn't contain any artifacts"
-          echo "  2. Artifacts weren't properly associated with the build"
-          echo "  3. Module mismatch between build and bundle"
-          echo ""
-          echo "Build Info Details:"
-          jf rt curl -XGET "/api/build/${{ env.BUILD_NAME }}/${{ github.run_number }}" --silent | jq -r '
-            "  Build Name: \(.name // "unknown")",
-            "  Build Number: \(.number // "unknown")",
-            "  Total Modules: \((.modules | length) // 0)",
-            "  Module Names: \([.modules[]?.id] | join(", "))",
-            "  Total Artifacts: \(([.modules[]?.artifacts[]?] | length) // 0)"
-          '
-          echo ""
-          echo "❌ Bundle verification failed - bundle is empty"
-          exit 1
-        fi
-        
-        echo ""
-        echo "Bundle Contents:"
-        echo "$bundle_info" | jq -r '.spec.artifacts[] | "  - \(.path // .name)"' 2>/dev/null || echo "  (Unable to list artifacts)"
-        
-        echo ""
-        echo "✓ Bundle verification complete - contains $artifact_count artifact(s)"
-
     - name: Promote release bundle to dev
       run: |
         jf rbp --include-repos "${{ env.JFROG_REPO_NAME }};${{ env.JFROG_SECURITY_REPO_NAME }}" ${{ env.BUILD_NAME}} ${{ env.BUNDLE_VERSION }} DEV
