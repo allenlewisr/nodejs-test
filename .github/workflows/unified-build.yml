@@ -412,7 +412,7 @@ jobs:
 
     - name: Generate bundle version
       run: |
-        echo "BUNDLE_VERSION=${{ env.PACKAGE_VERSION }}+build.${{ github.run_number }}" >> $GITHUB_ENV
+        echo "BUNDLE_VERSION=${{ env.PACKAGE_VERSION }}_build.${{ github.run_number }}" >> $GITHUB_ENV
 
     - name: Verify build exists in JFrog
       run: |
