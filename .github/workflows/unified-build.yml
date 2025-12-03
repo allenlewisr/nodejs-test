@@ -97,12 +97,12 @@ jobs:
     
     - name: npm install
       run: |
-        jf npm ci --build-name=${{ env.BUILD_NAME }} --build-number=${{ github.run_number }}
+        jf npm ci --build-name=${{ env.BUILD_NAME }} --build-number=${{ github.run_number }} --module=${{ env.BUILD_NAME }}
     
     - name: npm run lint
       run: |
-        jf npm run lint --build-name=${{ env.BUILD_NAME }} --build-number=${{ github.run_number }}
-        jf npm run format:check --build-name=${{ env.BUILD_NAME }} --build-number=${{ github.run_number }}
+        jf npm run lint --build-name=${{ env.BUILD_NAME }} --build-number=${{ github.run_number }} --module=${{ env.BUILD_NAME }}
+        jf npm run format:check --build-name=${{ env.BUILD_NAME }} --build-number=${{ github.run_number }} --module=${{ env.BUILD_NAME }}
     
     - name: Verify JFrog Repositories Exist
       run: |
@@ -159,7 +159,7 @@ jobs:
 
     - name: Publish to JFrog Artifactory
       run: |
-        jf npm publish --build-name=${{ env.BUILD_NAME }} --build-number=${{ github.run_number }}
+        jf npm publish --build-name=${{ env.BUILD_NAME }} --build-number=${{ github.run_number }} --module=${{ env.BUILD_NAME }}
 
     - name: Download published package for attestation
       run: |
@@ -414,9 +414,103 @@ jobs:
       run: |
         echo "BUNDLE_VERSION=${{ env.PACKAGE_VERSION }}+build.${{ github.run_number }}" >> $GITHUB_ENV
 
+    - name: Verify build exists in JFrog
+      run: |
+        echo "=== Verifying Build Info Exists ==="
+        echo "Build Name: ${{ env.BUILD_NAME }}"
+        echo "Build Number: ${{ github.run_number }}"
+        echo ""
+        
+        # Check if build exists
+        if ! build_info=$(jf rt curl -XGET "/api/build/${{ env.BUILD_NAME }}/${{ github.run_number }}" --silent --fail 2>&1); then
+          echo "❌ ERROR: Build info not found!"
+          echo ""
+          echo "This usually means the build-info was not published in the build job."
+          echo "Please check the 'Publish build-info to JFrog' step in the build job."
+          exit 1
+        fi
+        
+        echo "✓ Build info found"
+        echo ""
+        
+        # Display build info summary
+        if command -v jq &> /dev/null; then
+          echo "Build Info Summary:"
+          echo "$build_info" | jq -r '
+            "  Started: \(.started // "unknown")",
+            "  Modules: \((.modules | length) // 0)",
+            "  Artifacts: \(([.modules[]?.artifacts[]?] | length) // 0)"
+          ' 2>/dev/null || echo "  (Unable to parse build info)"
+        fi
+        
+        echo ""
+        echo "✓ Build verification complete"
+
     - name: Create release bundle
       run: |
-        jf rbc --build-name=${{ env.BUILD_NAME }} --build-number=${{ github.run_number }} ${{ env.BUILD_NAME }} ${{ env.BUNDLE_VERSION }}
+        echo "=== Creating Release Bundle ==="
+        echo "Bundle Name: ${{ env.BUILD_NAME }}"
+        echo "Bundle Version: ${{ env.BUNDLE_VERSION }}"
+        echo "Source Build: ${{ env.BUILD_NAME }}/${{ github.run_number }}"
+        echo ""
+        
+        # Create bundle from build - this will include all artifacts from all modules in the build
+        jf rbc \
+          --build-name=${{ env.BUILD_NAME }} \
+          --build-number=${{ github.run_number }} \
+          --sync=true \
+          ${{ env.BUILD_NAME }} \
+          ${{ env.BUNDLE_VERSION }}
+        
+        echo ""
+        echo "✓ Release bundle created successfully"
+
+    - name: Verify bundle contents
+      run: |
+        echo "=== Verifying Release Bundle Contents ==="
+        echo "Bundle: ${{ env.BUILD_NAME }} v${{ env.BUNDLE_VERSION }}"
+        echo ""
+        
+        # Get bundle information
+        bundle_info=$(jf rt curl -XGET "/api/v2/release_bundle/records/${{ env.BUILD_NAME }}/${{ env.BUNDLE_VERSION }}" --silent --fail)
+        
+        # Check bundle state
+        bundle_state=$(echo "$bundle_info" | jq -r '.state // "unknown"')
+        echo "Bundle State: $bundle_state"
+        
+        # Count artifacts in the bundle
+        artifact_count=$(echo "$bundle_info" | jq -r '.spec.artifacts | length // 0' 2>/dev/null || echo "0")
+        echo "Artifacts in bundle: $artifact_count"
+        
+        if [ "$artifact_count" -eq 0 ]; then
+          echo ""
+          echo "⚠️  WARNING: Bundle contains 0 artifacts!"
+          echo "This means the bundle was created but is empty."
+          echo ""
+          echo "Possible causes:"
+          echo "  1. Build info doesn't contain any artifacts"
+          echo "  2. Artifacts weren't properly associated with the build"
+          echo "  3. Module mismatch between build and bundle"
+          echo ""
+          echo "Build Info Details:"
+          jf rt curl -XGET "/api/build/${{ env.BUILD_NAME }}/${{ github.run_number }}" --silent | jq -r '
+            "  Build Name: \(.name // "unknown")",
+            "  Build Number: \(.number // "unknown")",
+            "  Total Modules: \((.modules | length) // 0)",
+            "  Module Names: \([.modules[]?.id] | join(", "))",
+            "  Total Artifacts: \(([.modules[]?.artifacts[]?] | length) // 0)"
+          '
+          echo ""
+          echo "❌ Bundle verification failed - bundle is empty"
+          exit 1
+        fi
+        
+        echo ""
+        echo "Bundle Contents:"
+        echo "$bundle_info" | jq -r '.spec.artifacts[] | "  - \(.path // .name)"' 2>/dev/null || echo "  (Unable to list artifacts)"
+        
+        echo ""
+        echo "✓ Bundle verification complete - contains $artifact_count artifact(s)"
 
     - name: Promote release bundle to dev
       run: |
