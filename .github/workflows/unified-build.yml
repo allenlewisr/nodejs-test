@@ -97,12 +97,13 @@ jobs:
     
     - name: npm install
       run: |
-        jf npm ci --build-name=${{ env.BUILD_NAME }} --build-number=${{ github.run_number }} --module=${{ env.BUILD_NAME }}
+        # Install dependencies - we'll explicitly add artifacts to build later
+        jf npm ci
     
     - name: npm run lint
       run: |
-        jf npm run lint --build-name=${{ env.BUILD_NAME }} --build-number=${{ github.run_number }} --module=${{ env.BUILD_NAME }}
-        jf npm run format:check --build-name=${{ env.BUILD_NAME }} --build-number=${{ github.run_number }} --module=${{ env.BUILD_NAME }}
+        npm run lint
+        npm run format:check
     
     - name: Verify JFrog Repositories Exist
       run: |
@@ -159,7 +160,42 @@ jobs:
 
     - name: Publish to JFrog Artifactory
       run: |
-        jf npm publish --build-name=${{ env.BUILD_NAME }} --build-number=${{ github.run_number }} --module=${{ env.BUILD_NAME }}
+        # npm publish might not properly associate with build-info when using --module flag
+        # So we'll publish first, then explicitly add to build
+        jf npm publish
+
+    - name: Add published package to build info
+      run: |
+        # After npm publish, explicitly add the artifact to the build info
+        # This is more reliable than relying on npm publish's build integration
+        ARTIFACT_PATH="${{ env.JFROG_REPO_NAME }}/${{ env.NPM_ARTIFACT_PATH }}"
+        
+        echo "Adding published package to build info:"
+        echo "  Artifact: ${ARTIFACT_PATH}"
+        echo "  Build: ${{ env.BUILD_NAME }}/${{ github.run_number }}"
+        echo "  Module: ${{ env.BUILD_NAME }}"
+        echo ""
+        
+        # Create a filespec to add the published artifact to the build
+        echo '{
+          "files": [
+            {
+              "pattern": "'"${ARTIFACT_PATH}"'",
+              "target": "'"${ARTIFACT_PATH}"'",
+              "props": "build.name=${{ env.BUILD_NAME }};build.number=${{ github.run_number }}"
+            }
+          ]
+        }' > build-spec.json
+        
+        # Use build-add-dependencies to add the npm package to the build
+        jf rt bad \
+          --from-rt \
+          --spec=build-spec.json \
+          --module=${{ env.BUILD_NAME }} \
+          ${{ env.BUILD_NAME }} \
+          ${{ github.run_number }}
+        
+        echo "✓ Package added to build info"
 
     - name: Download published package for attestation
       run: |
@@ -433,14 +469,48 @@ jobs:
         echo "✓ Build info found"
         echo ""
         
-        # Display build info summary
+        # Display detailed build info
         if command -v jq &> /dev/null; then
           echo "Build Info Summary:"
           echo "$build_info" | jq -r '
+            "  Build Name: \(.name // "unknown")",
+            "  Build Number: \(.number // "unknown")",
             "  Started: \(.started // "unknown")",
-            "  Modules: \((.modules | length) // 0)",
-            "  Artifacts: \(([.modules[]?.artifacts[]?] | length) // 0)"
+            "  Total Modules: \((.modules | length) // 0)"
           ' 2>/dev/null || echo "  (Unable to parse build info)"
+          
+          echo ""
+          echo "Modules and Artifacts:"
+          echo "$build_info" | jq -r '
+            .modules[]? | 
+            "  Module: \(.id // "unnamed")",
+            "    Type: \(.type // "unknown")",
+            "    Artifacts: \((.artifacts | length) // 0)",
+            if (.artifacts | length) > 0 then
+              (.artifacts[] | "      - \(.name // .path // "unknown")")
+            else
+              "      (no artifacts)"
+            end
+          ' 2>/dev/null || echo "  (Unable to list modules)"
+          
+          # Count total artifacts
+          total_artifacts=$(echo "$build_info" | jq '[.modules[]?.artifacts[]?] | length' 2>/dev/null || echo "0")
+          echo ""
+          echo "Total Artifacts in Build: $total_artifacts"
+          
+          if [ "$total_artifacts" -eq 0 ]; then
+            echo ""
+            echo "⚠️  WARNING: Build contains 0 artifacts!"
+            echo "This will result in an empty release bundle."
+            echo ""
+            echo "Possible causes:"
+            echo "  1. npm publish didn't associate artifacts with the build"
+            echo "  2. Build-info was published before artifacts were uploaded"
+            echo "  3. Module names don't match between upload and publish"
+            echo ""
+            echo "❌ Cannot create bundle from empty build"
+            exit 1
+          fi
         fi
         
         echo ""
@@ -454,10 +524,10 @@ jobs:
         echo "Source Build: ${{ env.BUILD_NAME }}/${{ github.run_number }}"
         echo ""
         
-        # Create bundle from build - this will include all artifacts from all modules in the build
+        # Create bundle from build using source-type-builds parameter
+        # This explicitly specifies to include all artifacts from the build
         jf rbc \
-          --build-name=${{ env.BUILD_NAME }} \
-          --build-number=${{ github.run_number }} \
+          --source-type-builds="name=${{ env.BUILD_NAME }},number=${{ github.run_number }},include-deps=true" \
           --sync=true \
           ${{ env.BUILD_NAME }} \
           ${{ env.BUNDLE_VERSION }}
