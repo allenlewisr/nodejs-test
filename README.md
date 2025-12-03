@@ -94,6 +94,69 @@ This template includes:
 - **Dependabot** - Automated dependency updates
 - **JFrog Integration** - Build and publish to JFrog repo
 - **JFrog Promotion** - Promote between JFrog lifecycles
+- **GitHub Attestations** - Cryptographic proof of provenance with Sigstore
+- **Security Scanning** - CodeQL analysis with attestations
+- **SBOM Generation** - Software Bill of Materials with attestations
+
+## Attestation & Supply Chain Security
+
+This template implements comprehensive supply chain security with GitHub attestations:
+
+### What Are Attestations?
+
+Attestations provide cryptographic proof that your package was:
+- ✅ Built in a trusted GitHub Actions environment
+- ✅ Created from a specific commit and workflow
+- ✅ Signed with Sigstore (tamper-proof)
+- ✅ Includes security scan results (CodeQL)
+- ✅ Has a complete Software Bill of Materials (SBOM)
+
+### Verifying Packages
+
+Anyone can verify the authenticity of your published packages:
+
+```bash
+# Download from JFrog
+jf rt download "nodejs-test-npm-local-dev/nodejs-template/-/nodejs-template-1.0.1.tgz" --flat
+
+# Verify attestation
+gh attestation verify nodejs-template-1.0.1.tgz --owner <your-org>
+```
+
+Or use the automated script:
+
+```bash
+./scripts/verify-attestation.sh nodejs-template-1.0.1.tgz nodejs-test-npm-local-dev <your-org>
+```
+
+### Documentation
+
+Complete attestation documentation is available:
+
+- 🚀 **Quick Start**: [`QUICK_VERIFICATION_GUIDE.md`](QUICK_VERIFICATION_GUIDE.md)
+- 📖 **Complete Guide**: [`ATTESTATION_FIX_FINAL.md`](ATTESTATION_FIX_FINAL.md)
+- 🔍 **Before/After**: [`BEFORE_AND_AFTER_COMPARISON.md`](BEFORE_AND_AFTER_COMPARISON.md)
+- 🛠️ **Technical Details**: [`docs/ATTEST_PUBLISHED_PACKAGE.md`](docs/ATTEST_PUBLISHED_PACKAGE.md)
+- 🐛 **Troubleshooting**: [`docs/ATTESTATION_VERIFICATION_TROUBLESHOOTING.md`](docs/ATTESTATION_VERIFICATION_TROUBLESHOOTING.md)
+- 📦 **NPM Publishing**: [`docs/ATTESTATION_WITH_NPM.md`](docs/ATTESTATION_WITH_NPM.md)
+
+### Key Features
+
+1. **Provenance Attestation** - Proves package origin and build process
+2. **Actor Attestation** - Records who triggered the build and approvers
+3. **CodeQL Attestation** - Links security scan results to package
+4. **SBOM Attestation** - Attests the complete dependency tree
+5. **Bidirectional Linking** - All security artifacts linked in JFrog properties
+
+### How It Works
+
+The workflow:
+1. Creates and publishes package to JFrog
+2. **Downloads the published package** (ensures exact hash match)
+3. Attests the downloaded package with GitHub
+4. Links all attestations and security artifacts in JFrog metadata
+
+This ensures the attestation matches the exact file users will download!
 
 ## Scripts Reference
 
