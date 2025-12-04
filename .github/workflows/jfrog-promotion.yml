@@ -308,20 +308,6 @@ jobs:
             "verificationUrl": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           }
 
-    - name: Update release bundle properties with attestation
-      run: |
-        # Update the promoted artifacts with attestation metadata
-        # Get the list of artifacts in the promoted repositories
-        echo "Updating artifacts in ${{ env.JFROG_REPO_NAME }} with promotion metadata..."
-        
-        # Set properties on artifacts that match the bundle
-        jf rt set-props \
-          "${{ env.JFROG_REPO_NAME }}/*" \
-          --include-dirs \
-          "promotion.source=${{ steps.get-source-env.outputs.source_env }};promotion.target=${{ inputs.target_env }};promotion.actor=${{ github.actor }};promotion.actor.id=${{ github.actor_id }};promotion.approver=${{ steps.get-approvers.outputs.approvers }};promotion.timestamp=${{ steps.get-promotion-timestamp.outputs.promotion_timestamp }};workflow.run.id=${{ github.run_id }};workflow.run.number=${{ github.run_number }};attestation.bundle.path=${{ steps.attest-promotion.outputs.bundle-path }}"
-        
-        echo "✓ Promotion properties updated on artifacts"
-
     - name: Store attestation metadata in JFrog
       run: |
         # Add properties to the release bundle in JFrog promotion records
